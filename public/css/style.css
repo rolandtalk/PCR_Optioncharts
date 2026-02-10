@@ -92,6 +92,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .btn-update {
@@ -322,4 +323,47 @@ body {
   color: var(--text-muted);
   font-size: 0.875rem;
   padding: 1rem 0;
+}
+
+/* View toggle (home vs symbol subpage) */
+.hidden {
+  display: none !important;
+}
+
+.symbol-page-header {
+  margin-bottom: 1rem;
+}
+
+.link-back {
+  display: inline-block;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.link-back:hover {
+  text-decoration: underline;
+}
+
+.symbol-page-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.symbol-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.symbol-link:hover {
+  text-decoration: underline;
+}
+
+.empty-records {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: 1.5rem;
+  text-align: center;
 }

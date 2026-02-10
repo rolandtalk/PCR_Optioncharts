@@ -6,3 +6,4 @@ data/
 *.log
 avav-page.html
 .DS_Store
+.playwright-browsers/

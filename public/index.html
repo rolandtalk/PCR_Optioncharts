@@ -26,15 +26,16 @@
         <button type="button" class="portfolio-btn" data-portfolio="5" aria-pressed="false">EL</button>
         <button type="button" class="portfolio-btn" data-portfolio="6" aria-pressed="false">66</button>
       </div>
-      <div class="update-row">
-        <button type="button" class="btn-update" id="btnUpdate">Update</button>
-        <span class="last-update" id="lastUpdate">Last updated: —</span>
-      </div>
     </div>
   </header>
 
   <main class="main">
+    <div id="view-home">
     <section class="table-section">
+      <div class="update-row">
+        <button type="button" class="btn-update" id="btnUpdate">Update</button>
+        <span class="last-update" id="lastUpdate">Last updated: —</span>
+      </div>
       <h2>Major Table <span class="sub">(Timed scrape snapshot)</span></h2>
       <div class="table-wrap">
         <table class="major-table" id="majorTable">
@@ -43,27 +44,27 @@
               <th>Symbol</th>
               <th>IVR</th>
               <th>TOI</th>
-              <th class="num">TOI change %</th>
+              <th class="num">%</th>
               <th>PCRO</th>
               <th>TOA</th>
               <th>TV</th>
-              <th class="num">TV change %</th>
+              <th class="num">%</th>
               <th>PCRV</th>
               <th>TVA</th>
             </tr>
           </thead>
           <tbody id="tableBody">
             <tr>
-              <td class="symbol">AVAV</td>
-              <td>90.49%</td>
-              <td>44,984</td>
+              <td class="symbol">—</td>
+              <td>—</td>
+              <td>—</td>
               <td class="num">—</td>
-              <td>0.86</td>
-              <td>95.58%</td>
-              <td>4,087</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
               <td class="num">—</td>
-              <td>0.39</td>
-              <td>52.17%</td>
+              <td>—</td>
+              <td>—</td>
             </tr>
           </tbody>
         </table>
@@ -90,6 +91,37 @@
         </li>
       </ul>
     </section>
+    </div>
+
+    <div id="view-symbol" class="hidden">
+      <div class="symbol-page-header">
+        <a href="#" class="link-back" id="linkBack">← Back</a>
+        <h1 class="symbol-page-title" id="symbolPageTitle">—</h1>
+      </div>
+      <section class="table-section symbol-records-section">
+        <h2>Scrape records <span class="sub">(up to 2 per day: Timed + latest Manual)</span></h2>
+        <div class="table-wrap">
+          <table class="major-table symbol-records-table" id="symbolRecordsTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>IVR</th>
+                <th>TOI</th>
+                <th class="num">%</th>
+                <th>PCRO</th>
+                <th>TOA</th>
+                <th>TV</th>
+                <th class="num">%</th>
+                <th>PCRV</th>
+                <th>TVA</th>
+              </tr>
+            </thead>
+            <tbody id="symbolRecordsBody">
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   </main>
 
   <script src="/js/app.js"></script>

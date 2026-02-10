@@ -9,7 +9,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import cron from 'node-cron';
 import { scrapeOptions } from './lib/scraper.js';
-import { appendSnapshot, getSnapshots } from './lib/store.js';
+import { appendSnapshot, getSnapshots, deleteSnapshots } from './lib/store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -52,6 +52,40 @@ app.get('/api/options/:ticker', async (req, res) => {
 });
 
 /**
+ * Daily view: at most 2 records per day — one scheduled (timed), one manual (latest only).
+ * Must be defined before /api/options/:ticker/snapshots so /daily is matched correctly.
+ * GET /api/options/:ticker/snapshots/daily?limit=60
+ */
+app.get('/api/options/:ticker/snapshots/daily', (req, res) => {
+  const ticker = (req.params.ticker || '').toUpperCase();
+  const limit = Math.min(parseInt(req.query.limit, 10) || 60, 200);
+  if (!ticker) {
+    return res.status(400).json({ error: 'Missing ticker' });
+  }
+  const list = getSnapshots(ticker, 500);
+  const byDay = {};
+  for (const s of list) {
+    const ts = s.timestamp || '';
+    const day = ts.slice(0, 10);
+    if (!day || day.length !== 10) continue;
+    if (!byDay[day]) byDay[day] = { scheduled: null, manual: null };
+    if (s.source === 'scheduled' && !byDay[day].scheduled) byDay[day].scheduled = s;
+    if (s.source === 'manual') {
+      if (!byDay[day].manual || s.timestamp > byDay[day].manual.timestamp) byDay[day].manual = s;
+    }
+  }
+  const days = Object.keys(byDay).sort().reverse().slice(0, limit);
+  const records = [];
+  for (const day of days) {
+    const { scheduled, manual } = byDay[day];
+    if (scheduled) records.push({ ...scheduled, _day: day, _source: 'Timed' });
+    if (manual) records.push({ ...manual, _day: day, _source: 'Manual' });
+  }
+  records.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+  res.json({ ticker, count: records.length, records });
+});
+
+/**
  * Stored snapshots for a ticker (from manual + scheduled runs).
  */
 app.get('/api/options/:ticker/snapshots', (req, res) => {
@@ -65,7 +99,22 @@ app.get('/api/options/:ticker/snapshots', (req, res) => {
 });
 
 /**
- * Table data: latest timed-scrape snapshot per symbol, with TOI/TV change % from previous timed scrape.
+ * Delete all stored snapshots for a ticker (e.g. when user removes symbol from watchlist).
+ */
+app.delete('/api/options/:ticker/snapshots', (req, res) => {
+  const ticker = (req.params.ticker || '').toUpperCase();
+  if (!ticker) {
+    return res.status(400).json({ error: 'Missing ticker' });
+  }
+  deleteSnapshots(ticker);
+  res.json({ ticker, deleted: true });
+});
+
+/**
+ * Table data for Major Table.
+ * Rule: prefer latest Timed (scheduled) scrape per symbol. If no Timed scrape exists yet,
+ * show the latest record even if it is a manual scrape. Any newer Timed scrape replaces
+ * a manual (or older timed) record. TOI/TV change % use previous record from same source set.
  * GET /api/table?symbols=AVAV,TSLA
  */
 app.get('/api/table', (req, res) => {
@@ -77,30 +126,50 @@ app.get('/api/table', (req, res) => {
   const rows = [];
   let lastUpdated = null;
   for (const symbol of symbols) {
-    const snapshots = getSnapshots(symbol, 50).filter((s) => s.source === 'scheduled');
+    const allSnapshots = getSnapshots(symbol, 50);
+    const timedOnly = allSnapshots.filter((s) => s.source === 'scheduled');
+    const snapshots = timedOnly.length > 0 ? timedOnly : allSnapshots;
     const latest = snapshots[0];
     const prev = snapshots[1];
-    if (!latest) continue;
+    if (!latest) {
+      rows.push({
+        symbol,
+        IVR: '—',
+        TOI: '—',
+        toiChangePct: '—',
+        PCRO: '—',
+        TOA: '—',
+        TV: '—',
+        tvChangePct: '—',
+        PCRV: '—',
+        TVA: '—',
+        timestamp: null,
+      });
+      continue;
+    }
     const toiNum = parseNumber(latest.TOI);
     const tvNum = parseNumber(latest.TV);
     const prevToi = prev ? parseNumber(prev.TOI) : null;
     const prevTv = prev ? parseNumber(prev.TV) : null;
     let toiChangePct = null;
     let tvChangePct = null;
-    if (prevToi != null && prevToi !== 0) toiChangePct = (((toiNum - prevToi) / prevToi) * 100).toFixed(2);
-    if (prevTv != null && prevTv !== 0) tvChangePct = (((tvNum - prevTv) / prevTv) * 100).toFixed(2);
+    if (prevToi != null && prevToi !== 0) toiChangePct = Math.round(((toiNum - prevToi) / prevToi) * 100);
+    if (prevTv != null && prevTv !== 0) tvChangePct = Math.round(((tvNum - prevTv) / prevTv) * 100);
     if (latest.timestamp && (!lastUpdated || latest.timestamp > lastUpdated)) lastUpdated = latest.timestamp;
+    const dash = (v) => (v != null && String(v).trim() !== '' ? String(v) : '—');
+    const pct = percentNoDecimals;
+    const sym = (latest.ticker || latest.symbol || symbol || '').toString().trim().toUpperCase() || symbol;
     rows.push({
-      symbol: latest.ticker || symbol,
-      IVR: latest.IVR,
-      TOI: latest.TOI,
-      toiChangePct: toiChangePct != null ? (parseFloat(toiChangePct) >= 0 ? '+' : '') + toiChangePct + '%' : '—',
-      PCRO: latest.PCRO,
-      TOA: latest.TOA,
-      TV: latest.TV,
-      tvChangePct: tvChangePct != null ? (parseFloat(tvChangePct) >= 0 ? '+' : '') + tvChangePct + '%' : '—',
-      PCRV: latest.PCRV,
-      TVA: latest.TVA,
+      symbol: sym,
+      IVR: pct(latest.IVR),
+      TOI: dash(latest.TOI),
+      toiChangePct: toiChangePct != null ? (toiChangePct >= 0 ? '+' : '') + toiChangePct + '%' : '—',
+      PCRO: dash(latest.PCRO),
+      TOA: pct(latest.TOA),
+      TV: dash(latest.TV),
+      tvChangePct: tvChangePct != null ? (tvChangePct >= 0 ? '+' : '') + tvChangePct + '%' : '—',
+      PCRV: dash(latest.PCRV),
+      TVA: pct(latest.TVA),
       timestamp: latest.timestamp,
     });
   }
@@ -111,6 +180,13 @@ function parseNumber(val) {
   if (val == null) return null;
   const n = typeof val === 'number' ? val : parseFloat(String(val).replace(/,/g, ''));
   return Number.isNaN(n) ? null : n;
+}
+
+function percentNoDecimals(val) {
+  if (val == null || String(val).trim() === '') return '—';
+  const n = parseFloat(String(val).replace(/%/g, '').replace(/,/g, ''));
+  if (Number.isNaN(n)) return '—';
+  return Math.round(n) + '%';
 }
 
 async function runScheduledScrape() {
