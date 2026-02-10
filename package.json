@@ -1,0 +1,20 @@
+{
+  "name": "optioncharts-scraper",
+  "version": "1.0.0",
+  "description": "Scrape option metrics from optioncharts.io — API + scheduled 20:50 Taiwan",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "scrape": "node scrape-avav.js",
+    "scrape:avav": "node scrape-avav.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "node-cron": "^3.0.3",
+    "playwright": "^1.49.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
