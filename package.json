@@ -1,7 +1,7 @@
 {
   "name": "optioncharts-scraper",
   "version": "1.0.0",
-  "description": "Scrape option metrics from optioncharts.io — API + scheduled 20:50 Taiwan",
+  "description": "Scrape option metrics from optioncharts.io — API + scheduled 22:15 Taiwan",
   "type": "module",
   "main": "server.js",
   "scripts": {

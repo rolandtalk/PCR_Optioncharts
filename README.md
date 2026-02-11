@@ -14,7 +14,7 @@ Scrapes [optioncharts.io](https://optioncharts.io) option metrics and exposes th
 
 ## Scraping schedule
 
-- **Timed:** 20:50 Taiwan time (12:50 UTC) on **trading days** (Mon–Fri). Runs inside the same API process (no separate service).
+- **Timed:** 22:15 Taiwan time (14:15 UTC) on **trading days** (Mon–Fri). Runs inside the same API process (no separate service).
 - **Manual:** Call the API anytime.
 
 **One API** handles both: the scheduled job is a cron inside the app that calls the same scrape logic. You do **not** need two separate APIs.
@@ -77,14 +77,14 @@ node scrape-avav.js AVAV
 
 3. **Env (optional)**  
    - `PORT` — set by Railway.  
-   - `SCHEDULED_TICKERS` — comma-separated tickers to scrape at 20:50 Taiwan (default: `AVAV`).  
+   - `SCHEDULED_TICKERS` — comma-separated tickers to scrape at 22:15 Taiwan (default: `AVAV`).  
    - `DATA_DIR` — where to store snapshots (default: `./data`). For persistence across deploys, add a **Volume** and set `DATA_DIR` to the mount path (e.g. `/data`).
 
 4. **Persistence (optional)**  
    To keep snapshots across redeploys: add a Volume in the Railway dashboard, mount it (e.g. at `/data`), and set `DATA_DIR=/data`.
 
 5. **Cron**  
-   No separate cron service. The app runs the scheduled scrape at **20:50 Taiwan (12:50 UTC)** on **Mon–Fri** inside the same process.
+   No separate cron service. The app runs the scheduled scrape at **22:15 Taiwan (14:15 UTC)** on **Mon–Fri** inside the same process.
 
 ## Deploy frontend on Cloudflare Pages (optionscan.pages.dev)
 

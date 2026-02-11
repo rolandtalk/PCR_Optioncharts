@@ -1,7 +1,7 @@
 /**
  * OptionCharts scraper API
  * - Manual: GET /api/options/:ticker
- * - Scheduled: 20:50 Taiwan time (12:50 UTC) on Mon–Fri, scrapes configured tickers and stores
+ * - Scheduled: 22:15 Taiwan time (14:15 UTC) on Mon–Fri, scrapes configured tickers and stores
  */
 
 import express from 'express';
@@ -21,8 +21,8 @@ const SCHEDULED_TICKERS = (process.env.SCHEDULED_TICKERS || 'AVAV')
   .map((t) => t.trim().toUpperCase())
   .filter(Boolean);
 
-// 20:50 Taiwan time = 12:50 UTC (Taiwan UTC+8). Mon–Fri = trading days.
-const CRON_20_50_TAIWAN = '50 12 * * 1-5';
+// 22:15 Taiwan time = 14:15 UTC (Taiwan UTC+8). Mon–Fri = trading days.
+const CRON_22_15_TAIWAN = '15 14 * * 1-5';
 
 app.use(express.json());
 
@@ -303,13 +303,13 @@ async function runScheduledScrape() {
   }
 }
 
-// Run at 20:50 Taiwan (12:50 UTC) on weekdays
-cron.schedule(CRON_20_50_TAIWAN, runScheduledScrape, {
+// Run at 22:15 Taiwan (14:15 UTC) on weekdays
+cron.schedule(CRON_22_15_TAIWAN, runScheduledScrape, {
   timezone: 'UTC',
 });
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
   console.log(`DATA_DIR=${DATA_DIR} (use a Volume mounted here so watchlists/snapshots persist across devices and redeploys)`);
-  console.log(`Scheduled scrape: 20:50 Taiwan (12:50 UTC) Mon–Fri for [${SCHEDULED_TICKERS.join(', ')}]`);
+  console.log(`Scheduled scrape: 22:15 Taiwan (14:15 UTC) Mon–Fri for [${SCHEDULED_TICKERS.join(', ')}]`);
 });
