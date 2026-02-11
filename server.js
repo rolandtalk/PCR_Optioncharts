@@ -8,7 +8,7 @@ import express from 'express';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import cron from 'node-cron';
-import { scrapeOptions } from './lib/scraper.js';
+import { scrapeOptions, scrapeMultiple } from './lib/scraper.js';
 import { appendSnapshot, getSnapshots, deleteSnapshots } from './lib/store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -52,10 +52,47 @@ app.get('/api/options/:ticker', async (req, res) => {
 });
 
 /**
+ * Batch scrape: run multiple symbols in parallel (one browser, up to 5 pages at a time).
+ * POST /api/options/scrape-batch body: { symbols: ['AVAV', 'SMCI', ...] }
+ */
+app.post('/api/options/scrape-batch', async (req, res) => {
+  const symbols = Array.isArray(req.body.symbols)
+    ? req.body.symbols.map((s) => String(s).trim().toUpperCase()).filter(Boolean)
+    : [];
+  if (symbols.length === 0) {
+    return res.status(400).json({ error: 'Missing or empty symbols' });
+  }
+  try {
+    const results = await scrapeMultiple(symbols);
+    const timestamp = new Date().toISOString();
+    const saved = [];
+    for (const r of results) {
+      if (r.data) {
+        const record = { ...r.data, timestamp, source: 'manual' };
+        appendSnapshot(record);
+        saved.push({ ticker: r.ticker, ok: true });
+      } else {
+        saved.push({ ticker: r.ticker, ok: false, error: r.error });
+      }
+    }
+    res.json({ results: saved });
+  } catch (e) {
+    console.error('Batch scrape failed:', e);
+    res.status(502).json({ error: 'Batch scrape failed', message: e.message });
+  }
+});
+
+/**
  * Daily view: at most 2 records per day — one scheduled (timed), one manual (latest only).
- * Must be defined before /api/options/:ticker/snapshots so /daily is matched correctly.
+ * % columns: compare to previous day's Timed scrape; if none, show "—".
  * GET /api/options/:ticker/snapshots/daily?limit=60
  */
+function prevDayStr(dayStr) {
+  const d = new Date(dayStr + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 app.get('/api/options/:ticker/snapshots/daily', (req, res) => {
   const ticker = (req.params.ticker || '').toUpperCase();
   const limit = Math.min(parseInt(req.query.limit, 10) || 60, 200);
@@ -78,8 +115,28 @@ app.get('/api/options/:ticker/snapshots/daily', (req, res) => {
   const records = [];
   for (const day of days) {
     const { scheduled, manual } = byDay[day];
-    if (scheduled) records.push({ ...scheduled, _day: day, _source: 'Timed' });
-    if (manual) records.push({ ...manual, _day: day, _source: 'Manual' });
+    const prevTimed = byDay[prevDayStr(day)]?.scheduled;
+    const pctFromPrev = (r) => {
+      let toi = '—';
+      let tv = '—';
+      if (prevTimed) {
+        const toiNum = parseNumber(r.TOI);
+        const tvNum = parseNumber(r.TV);
+        const prevToi = parseNumber(prevTimed.TOI);
+        const prevTv = parseNumber(prevTimed.TV);
+        if (prevToi != null && prevToi !== 0 && toiNum != null) toi = (Math.round(((toiNum - prevToi) / prevToi) * 100) >= 0 ? '+' : '') + Math.round(((toiNum - prevToi) / prevToi) * 100) + '%';
+        if (prevTv != null && prevTv !== 0 && tvNum != null) tv = (Math.round(((tvNum - prevTv) / prevTv) * 100) >= 0 ? '+' : '') + Math.round(((tvNum - prevTv) / prevTv) * 100) + '%';
+      }
+      return { toi, tv };
+    };
+    if (scheduled) {
+      const { toi, tv } = pctFromPrev(scheduled);
+      records.push({ ...scheduled, _day: day, _source: 'Timed', _toiChangePct: toi, _tvChangePct: tv });
+    }
+    if (manual) {
+      const { toi, tv } = pctFromPrev(manual);
+      records.push({ ...manual, _day: day, _source: 'Manual', _toiChangePct: toi, _tvChangePct: tv });
+    }
   }
   records.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
   res.json({ ticker, count: records.length, records });
@@ -112,9 +169,7 @@ app.delete('/api/options/:ticker/snapshots', (req, res) => {
 
 /**
  * Table data for Major Table.
- * Rule: prefer latest Timed (scheduled) scrape per symbol. If no Timed scrape exists yet,
- * show the latest record even if it is a manual scrape. Any newer Timed scrape replaces
- * a manual (or older timed) record. TOI/TV change % use previous record from same source set.
+ * Rule: show the last-updated snapshot per symbol (timed or manual). TOI/TV change % use previous snapshot.
  * GET /api/table?symbols=AVAV,TSLA
  */
 app.get('/api/table', (req, res) => {
@@ -126,14 +181,13 @@ app.get('/api/table', (req, res) => {
   const rows = [];
   let lastUpdated = null;
   for (const symbol of symbols) {
-    const allSnapshots = getSnapshots(symbol, 50);
-    const timedOnly = allSnapshots.filter((s) => s.source === 'scheduled');
-    const snapshots = timedOnly.length > 0 ? timedOnly : allSnapshots;
+    const snapshots = getSnapshots(symbol, 50);
     const latest = snapshots[0];
     const prev = snapshots[1];
     if (!latest) {
       rows.push({
         symbol,
+        IV: '—',
         IVR: '—',
         TOI: '—',
         toiChangePct: '—',
@@ -161,6 +215,7 @@ app.get('/api/table', (req, res) => {
     const sym = (latest.ticker || latest.symbol || symbol || '').toString().trim().toUpperCase() || symbol;
     rows.push({
       symbol: sym,
+      IV: pct(latest.IV),
       IVR: pct(latest.IVR),
       TOI: dash(latest.TOI),
       toiChangePct: toiChangePct != null ? (toiChangePct >= 0 ? '+' : '') + toiChangePct + '%' : '—',

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OptionCharts — Home</title>
+  <title>Option Mkt Info</title>
   <link rel="stylesheet" href="/css/style.css" />
   <style>
     /* Critical fallback so content is never invisible */
@@ -16,7 +16,7 @@
 </head>
 <body>
   <header class="header">
-    <h1 class="logo">OptionCharts</h1>
+    <h1 class="logo">Option Mkt Info</h1>
     <div class="header-actions">
       <div class="portfolio-switch" role="group" aria-label="Portfolio">
         <button type="button" class="portfolio-btn is-selected" data-portfolio="1" aria-pressed="true">RH</button>
@@ -34,23 +34,25 @@
     <section class="table-section">
       <div class="update-row">
         <button type="button" class="btn-update" id="btnUpdate">Update</button>
+        <span class="update-timer" id="updateTimer" aria-live="polite"></span>
         <span class="last-update" id="lastUpdate">Last updated: —</span>
       </div>
-      <h2>Major Table <span class="sub">(Timed scrape snapshot)</span></h2>
+      <h2>Major Table <span class="sub">(last update)</span></h2>
       <div class="table-wrap">
         <table class="major-table" id="majorTable">
           <thead>
             <tr>
-              <th>Symbol</th>
-              <th>IVR</th>
-              <th>TOI</th>
-              <th class="num">%</th>
-              <th>PCRO</th>
-              <th>TOA</th>
-              <th>TV</th>
-              <th class="num">%</th>
-              <th>PCRV</th>
-              <th>TVA</th>
+              <th class="sortable" data-sort="symbol">Symbol<span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="IV">IV<span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="IVR">IVR<span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="TOI">TOI<span class="sort-icon"></span></th>
+              <th class="num pct-col sortable" data-sort="toiChangePct">%<span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="PCRO">PCRO<span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="TOA">TOA<span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="TV">TV<span class="sort-icon"></span></th>
+              <th class="num pct-col sortable" data-sort="tvChangePct">%<span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="PCRV">PCRV<span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="TVA">TVA<span class="sort-icon"></span></th>
             </tr>
           </thead>
           <tbody id="tableBody">
@@ -58,11 +60,12 @@
               <td class="symbol">—</td>
               <td>—</td>
               <td>—</td>
-              <td class="num">—</td>
+              <td>—</td>
+              <td class="num pct-col">—</td>
               <td>—</td>
               <td>—</td>
               <td>—</td>
-              <td class="num">—</td>
+              <td class="num pct-col">—</td>
               <td>—</td>
               <td>—</td>
             </tr>
@@ -105,13 +108,15 @@
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Time</th>
+                <th>IV</th>
                 <th>IVR</th>
                 <th>TOI</th>
-                <th class="num">%</th>
+                <th class="num pct-col">%</th>
                 <th>PCRO</th>
                 <th>TOA</th>
                 <th>TV</th>
-                <th class="num">%</th>
+                <th class="num pct-col">%</th>
                 <th>PCRV</th>
                 <th>TVA</th>
               </tr>
