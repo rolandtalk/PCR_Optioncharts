@@ -1,5 +1,5 @@
-# Playwright Node image includes Chromium for scraping
-FROM mcr.microsoft.com/playwright/node:v1.49.0-jammy
+# Playwright image includes Node.js + Chromium for scraping (use tag that exists on MCR)
+FROM mcr.microsoft.com/playwright:v1.50.0-noble
 
 WORKDIR /app
 
