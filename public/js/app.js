@@ -42,7 +42,7 @@
     } catch (_) {}
   }
 
-  /** Load watchlists from server (sync across devices). Overwrites localStorage only when server has data. */
+  /** Load watchlists from server (sync across devices). Only overwrite local when server has at least as much data, so stale server never wipes a fuller local list. */
   async function loadWatchlistsFromServer() {
     if (!getApiUrl('/api/watchlists')) return;
     try {
@@ -50,12 +50,20 @@
       if (!r.ok) return;
       const data = await r.json();
       if (!data || typeof data !== 'object') return;
-      let hasAny = false;
+      let serverTotal = 0;
       for (let i = 1; i <= 6; i++) {
         const list = data[String(i)];
-        if (Array.isArray(list) && list.length > 0) hasAny = true;
+        if (Array.isArray(list)) serverTotal += list.length;
       }
-      if (!hasAny) return;
+      let localTotal = 0;
+      for (let i = 1; i <= 6; i++) {
+        localTotal += getWatchlistForPortfolio(String(i)).length;
+      }
+      if (serverTotal === 0) return;
+      if (localTotal > serverTotal) {
+        syncWatchlistsToServer();
+        return;
+      }
       for (let i = 1; i <= 6; i++) {
         const key = String(i);
         const list = Array.isArray(data[key]) ? data[key] : [];
