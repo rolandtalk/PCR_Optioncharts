@@ -4,6 +4,44 @@
   const MAX_WATCHLIST = 30;
   const DEFAULT_PORTFOLIO = '1';
 
+  let apiBase = '';
+  function getApiUrl(path) {
+    return (apiBase || '') + path;
+  }
+
+  async function loadConfig() {
+    try {
+      const r = await fetch('/config.json');
+      const c = await r.json();
+      if (location.hostname.includes('pages.dev') && c.railwayUrl) {
+        apiBase = (c.railwayUrl || '').replace(/\/$/, '');
+      } else if (c.apiBase) {
+        apiBase = (c.apiBase || '').replace(/\/$/, '');
+      }
+    } catch (_) {}
+    // Fallback when on Cloudflare Pages so API always points to Railway even if config failed
+    if (location.hostname.includes('pages.dev') && !apiBase) {
+      apiBase = 'https://optionscan.up.railway.app';
+    }
+  }
+
+  async function seedWatchlistsFromRepo() {
+    try {
+      const r = await fetch('/data/watchlists.json');
+      const data = await r.json();
+      for (let i = 1; i <= 6; i++) {
+        const key = getWatchlistKey(String(i));
+        const existing = localStorage.getItem(key);
+        if (!existing || existing === '[]') {
+          const list = data[String(i)];
+          if (Array.isArray(list)) {
+            localStorage.setItem(key, JSON.stringify(list.slice(0, MAX_WATCHLIST)));
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   function getWatchlistKey(portfolio) {
     return 'optioncharts_watchlist_' + (portfolio || DEFAULT_PORTFOLIO);
   }
@@ -248,7 +286,7 @@
         const symbol = li && li.dataset.symbol;
         if (!symbol) return;
         try {
-          await fetch(`/api/options/${encodeURIComponent(symbol)}/snapshots`, { method: 'DELETE' });
+          await fetch(getApiUrl(`/api/options/${encodeURIComponent(symbol)}/snapshots`), { method: 'DELETE' });
         } catch (_) {}
         const next = getWatchlist().filter((s) => s !== symbol);
         setWatchlist(next);
@@ -302,7 +340,7 @@
     }
     try {
       const params = new URLSearchParams({ symbols: list.join(',') });
-      const res = await fetch(`/api/table?${params}`);
+      const res = await fetch(getApiUrl(`/api/table?${params}`));
       if (!res.ok) throw new Error('Table request failed');
       const data = await res.json();
       const apiRows = Array.isArray(data.rows) ? data.rows : [];
@@ -334,7 +372,14 @@
     if (!btn) return;
     btn.addEventListener('click', async function () {
       const list = getWatchlist();
-      if (list.length === 0) return;
+      if (list.length === 0) {
+        if (timerEl) {
+          timerEl.textContent = 'Add at least one symbol';
+          timerEl.classList.add('timer-done');
+          setTimeout(() => { timerEl.textContent = ''; timerEl.classList.remove('timer-done'); }, 3000);
+        }
+        return;
+      }
       const label = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Updating…';
@@ -350,7 +395,7 @@
       }
       let batchResults = [];
       try {
-        const res = await fetch('/api/options/scrape-batch', {
+        const res = await fetch(getApiUrl('/api/options/scrape-batch'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ symbols: list }),
@@ -507,7 +552,7 @@
 
   async function fetchSymbolDaily(symbol) {
     try {
-      const res = await fetch(`/api/options/${encodeURIComponent(symbol)}/snapshots/daily?limit=60`);
+      const res = await fetch(getApiUrl(`/api/options/${encodeURIComponent(symbol)}/snapshots/daily?limit=60`));
       const data = await res.json();
       if (data.records) {
         renderSymbolRecords(symbol, data.records);
@@ -538,8 +583,28 @@
     });
   }
 
-  function init() {
+  function bindExportWatchlists() {
+    const el = document.getElementById('exportWatchlists');
+    if (!el) return;
+    el.addEventListener('click', function (e) {
+      e.preventDefault();
+      const out = {};
+      for (let i = 1; i <= 6; i++) {
+        out[String(i)] = getWatchlistForPortfolio(String(i));
+      }
+      const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'watchlists.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  }
+
+  async function init() {
     migrateLegacyWatchlist();
+    await loadConfig();
+    await seedWatchlistsFromRepo();
     applyPortfolioSelection(getPortfolio());
     renderWatchlist();
     fetchTable();
@@ -548,6 +613,7 @@
     bindAdd();
     bindPortfolioSwitch();
     bindBackLink();
+    bindExportWatchlists();
     route();
     window.addEventListener('hashchange', route);
   }
