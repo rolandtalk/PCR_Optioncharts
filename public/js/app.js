@@ -646,6 +646,27 @@
     });
   }
 
+  function bindSyncCloud() {
+    const btn = document.getElementById('btnSyncCloud');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      const url = getApiUrl('/api/watchlists');
+      if (!url) return;
+      const prev = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Syncing…';
+      const payload = {};
+      for (let i = 1; i <= 6; i++) payload[String(i)] = getWatchlistForPortfolio(String(i));
+      fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        .then((r) => { btn.textContent = r.ok ? 'Synced' : 'Failed'; })
+        .catch(() => { btn.textContent = 'Failed'; })
+        .finally(() => {
+          btn.disabled = false;
+          setTimeout(() => { btn.textContent = prev; }, 2000);
+        });
+    });
+  }
+
   async function init() {
     migrateLegacyWatchlist();
     await loadConfig();
@@ -660,6 +681,7 @@
     bindPortfolioSwitch();
     bindBackLink();
     bindExportWatchlists();
+    bindSyncCloud();
     route();
     window.addEventListener('hashchange', route);
   }

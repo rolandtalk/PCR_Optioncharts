@@ -116,6 +116,17 @@ Use this to serve the **static UI** from Cloudflare while the **API** stays on R
 - In the UI, **Export for repo** downloads the current watchlists as `watchlists.json`; save it to `public/data/watchlists.json` and commit to sync your symbols to the repo.
 - **Cross-device sync:** Watchlists are saved on the API server (Railway). When you add or remove symbols, the app pushes to `POST /api/watchlists`. When you open the app on another phone or browser, it loads from `GET /api/watchlists`, so you see the same symbols everywhere. Option data (snapshots) already lives on the server, so it’s the same on all devices. For watchlists to persist across Railway redeploys, use a **Volume** and set `DATA_DIR` to the volume path (same as for snapshots).
 
+## See records across devices (Railway Volume)
+
+Without a **Volume**, the app’s data directory is wiped on every deploy or restart, so other devices never see the same watchlists or option records. Do this once on Railway:
+
+1. Open **[Railway](https://railway.app)** → your project → select the **optioncharts** service.
+2. **Add a Volume:** Press **⌘K** (or right‑click the canvas) → **Add Volume** → choose the **optioncharts** service.
+3. **Mount path:** Set the volume’s mount path to **`/app/data`** (the app’s default `DATA_DIR` is `./data` = `/app/data` in the container). No need to set a `DATA_DIR` variable.
+4. **Redeploy** the service (e.g. from the Deployments tab) so the new volume is mounted.
+
+After that, watchlists and snapshots are stored on the volume and persist across restarts and deploys. All devices using **optionscan.pages.dev** will then load the same symbols and option data from the API.
+
 ## Env summary
 
 | Variable | Default | Description |
