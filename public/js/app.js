@@ -42,6 +42,41 @@
     } catch (_) {}
   }
 
+  /** Load watchlists from server (sync across devices). Overwrites localStorage only when server has data. */
+  async function loadWatchlistsFromServer() {
+    if (!getApiUrl('/api/watchlists')) return;
+    try {
+      const r = await fetch(getApiUrl('/api/watchlists'));
+      if (!r.ok) return;
+      const data = await r.json();
+      if (!data || typeof data !== 'object') return;
+      let hasAny = false;
+      for (let i = 1; i <= 6; i++) {
+        const list = data[String(i)];
+        if (Array.isArray(list) && list.length > 0) hasAny = true;
+      }
+      if (!hasAny) return;
+      for (let i = 1; i <= 6; i++) {
+        const key = String(i);
+        const list = Array.isArray(data[key]) ? data[key] : [];
+        localStorage.setItem(getWatchlistKey(key), JSON.stringify(list.slice(0, MAX_WATCHLIST)));
+      }
+    } catch (_) {}
+  }
+
+  /** Push current watchlists to server so other devices see the same data. */
+  function syncWatchlistsToServer() {
+    const payload = {};
+    for (let i = 1; i <= 6; i++) {
+      payload[String(i)] = getWatchlistForPortfolio(String(i));
+    }
+    fetch(getApiUrl('/api/watchlists'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  }
+
   function getWatchlistKey(portfolio) {
     return 'optioncharts_watchlist_' + (portfolio || DEFAULT_PORTFOLIO);
   }
@@ -290,6 +325,7 @@
         } catch (_) {}
         const next = getWatchlist().filter((s) => s !== symbol);
         setWatchlist(next);
+        syncWatchlistsToServer();
         if (getSymbolFromHash() === symbol) {
           window.location.hash = '';
         }
@@ -446,6 +482,7 @@
       }
       if (list.length >= MAX_WATCHLIST) return;
       setWatchlist([...list, symbol]);
+      syncWatchlistsToServer();
       input.value = '';
       renderWatchlist();
       fetchTable();
@@ -605,6 +642,7 @@
     migrateLegacyWatchlist();
     await loadConfig();
     await seedWatchlistsFromRepo();
+    await loadWatchlistsFromServer();
     applyPortfolioSelection(getPortfolio());
     renderWatchlist();
     fetchTable();

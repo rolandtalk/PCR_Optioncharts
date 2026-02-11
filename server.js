@@ -9,7 +9,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import cron from 'node-cron';
 import { scrapeOptions, scrapeMultiple } from './lib/scraper.js';
-import { appendSnapshot, getSnapshots, deleteSnapshots } from './lib/store.js';
+import { appendSnapshot, getSnapshots, deleteSnapshots, loadWatchlists, saveWatchlists } from './lib/store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -43,6 +43,33 @@ app.use(express.static(join(__dirname, 'public')));
 // Health for Railway
 
 app.get('/health', (req, res) => res.send('ok'));
+
+/**
+ * Get saved watchlists (sync across devices). Shape: { "1": [...], "2": [...], ... "6": [] }
+ */
+app.get('/api/watchlists', (req, res) => {
+  try {
+    const data = loadWatchlists();
+    res.json(data);
+  } catch (e) {
+    console.error('Load watchlists failed:', e);
+    res.status(500).json({ error: 'Failed to load watchlists' });
+  }
+});
+
+/**
+ * Save watchlists (sync across devices). Body: { "1": [...], "2": [...], ... "6": [] }
+ */
+app.post('/api/watchlists', (req, res) => {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  try {
+    saveWatchlists(body);
+    res.json(loadWatchlists());
+  } catch (e) {
+    console.error('Save watchlists failed:', e);
+    res.status(500).json({ error: 'Failed to save watchlists' });
+  }
+});
 
 /**
  * Manual trigger: scrape :ticker and return metrics.
@@ -91,7 +118,11 @@ app.post('/api/options/scrape-batch', async (req, res) => {
     res.json({ results: saved });
   } catch (e) {
     console.error('Batch scrape failed:', e);
-    res.status(502).json({ error: 'Batch scrape failed', message: e.message });
+    console.error('Batch scrape stack:', e.stack);
+    res.status(502).json({
+      error: 'Batch scrape failed',
+      message: e && (e.message || String(e)),
+    });
   }
 });
 

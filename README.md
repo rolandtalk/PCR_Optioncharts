@@ -86,6 +86,36 @@ node scrape-avav.js AVAV
 5. **Cron**  
    No separate cron service. The app runs the scheduled scrape at **20:50 Taiwan (12:50 UTC)** on **Mon–Fri** inside the same process.
 
+## Deploy frontend on Cloudflare Pages (optionscan.pages.dev)
+
+Use this to serve the **static UI** from Cloudflare while the **API** stays on Railway.
+
+1. **Railway**  
+   Deploy the full app (API + static) on Railway and note the public URL (e.g. `https://optioncharts-production.up.railway.app`).
+
+2. **Point frontend at the API**  
+   Edit `public/config.json`: set `railwayUrl` to your Railway URL (no trailing slash).  
+   When the app is opened on a `*.pages.dev` host, it will use this URL for all `/api/*` requests.
+
+3. **Cloudflare Pages**  
+   - [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git** → select this repo.  
+   - **Build settings:**  
+     - **Framework preset:** None  
+     - **Build command:** (leave empty)  
+     - **Build output directory:** `public`  
+   - **Project name:** use `optionscan` so the default URL is **https://optionscan.pages.dev**.  
+   - Deploy. The site will be served from the `public` folder; `/data/watchlists.json` and `/config.json` come from the repo.
+
+4. **Custom domain (optional)**  
+   In the Pages project → **Custom domains** → add `optionscan.pages.dev` if you want it explicitly set (often it’s already the default).
+
+## Watchlists and data in the repo
+
+- **Portfolios** are labeled **RH / AL / 33 / DF / 55 / 66** (stored as 1–6 in the app).
+- **Default symbols** live in `public/data/watchlists.json` (keys `"1"`–`"6"` = RH–66). The app loads this on first visit and seeds empty portfolios; you can edit the file and commit to change defaults.
+- In the UI, **Export for repo** downloads the current watchlists as `watchlists.json`; save it to `public/data/watchlists.json` and commit to sync your symbols to the repo.
+- **Cross-device sync:** Watchlists are saved on the API server (Railway). When you add or remove symbols, the app pushes to `POST /api/watchlists`. When you open the app on another phone or browser, it loads from `GET /api/watchlists`, so you see the same symbols everywhere. Option data (snapshots) already lives on the server, so it’s the same on all devices. For watchlists to persist across Railway redeploys, use a **Volume** and set `DATA_DIR` to the volume path (same as for snapshots).
+
 ## Env summary
 
 | Variable | Default | Description |
