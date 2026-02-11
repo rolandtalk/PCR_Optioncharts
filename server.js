@@ -25,6 +25,19 @@ const SCHEDULED_TICKERS = (process.env.SCHEDULED_TICKERS || 'AVAV')
 const CRON_20_50_TAIWAN = '50 12 * * 1-5';
 
 app.use(express.json());
+
+// CORS: allow frontend on Cloudflare Pages (optionscan.pages.dev and preview subdomains)
+app.use((req, res, next) => {
+  const origin = req.headers.origin || '';
+  if (origin === 'https://optionscan.pages.dev' || /^https:\/\/[a-z0-9-]+\.optionscan\.pages\.dev$/.test(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 app.use(express.static(join(__dirname, 'public')));
 
 // Health for Railway
