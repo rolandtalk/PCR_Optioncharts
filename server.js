@@ -9,7 +9,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import cron from 'node-cron';
 import { scrapeOptions, scrapeMultiple } from './lib/scraper.js';
-import { appendSnapshot, getSnapshots, deleteSnapshots, loadWatchlists, saveWatchlists } from './lib/store.js';
+import { appendSnapshot, getSnapshots, deleteSnapshots, loadWatchlists, saveWatchlists, DATA_DIR } from './lib/store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -310,5 +310,6 @@ cron.schedule(CRON_20_50_TAIWAN, runScheduledScrape, {
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
+  console.log(`DATA_DIR=${DATA_DIR} (use a Volume mounted here so watchlists/snapshots persist across devices and redeploys)`);
   console.log(`Scheduled scrape: 20:50 Taiwan (12:50 UTC) Mon–Fri for [${SCHEDULED_TICKERS.join(', ')}]`);
 });
