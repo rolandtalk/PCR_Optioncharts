@@ -217,8 +217,18 @@
   }
 
   function renderMiniChart(container, series) {
-    const points = toPoints(series.slice(-20), { width: 260, height: 100, left: 4, right: 256, top: 8, bottom: 90 });
-    const thresholdY = ratioToY(CHART.threshold, { top: 8, bottom: 90, minRatio: CHART.minRatio, maxRatio: CHART.maxRatio });
+    const miniBox = {
+      width: 260,
+      height: 100,
+      left: 4,
+      right: 256,
+      top: 8,
+      bottom: 90,
+      minRatio: CHART.minRatio,
+      maxRatio: CHART.maxRatio,
+    };
+    const points = toPoints(series.slice(-20), miniBox);
+    const thresholdY = ratioToY(CHART.threshold, miniBox);
     const path = pointsToPath(points);
     container.innerHTML = `
       <defs>
