@@ -90,6 +90,7 @@
     $('#drawBtn').addEventListener('click', drawRequestedSymbol);
     $('#addBtn').addEventListener('click', addCurrentSymbol);
     $('#sortSelect').addEventListener('change', renderWatchlist);
+    $('#refreshWatchBtn').addEventListener('click', refreshWatchlist);
     $('#symbolInput').addEventListener('input', () => {
       $('#symbolInput').value = cleanSymbol($('#symbolInput').value);
       updateAddButton();
@@ -195,17 +196,24 @@
   }
 
   function renderMoodMeter(series) {
+    const mood = getMood(series);
+    $('#callMoodFill').style.width = `${mood.callPct}%`;
+    $('#putMoodFill').style.width = `${mood.putPct}%`;
+    $('#callMoodPct').textContent = `${mood.callPct.toFixed(1)}% Call days`;
+    $('#putMoodPct').textContent = `${mood.putPct.toFixed(1)}% Put days`;
+  }
+
+  function getMood(series) {
     const valid = series.filter((point) => Number.isFinite(point.ratio));
     const callDays = valid.filter((point) => point.ratio < CHART.threshold).length;
     const putDays = valid.filter((point) => point.ratio >= CHART.threshold).length;
     const total = Math.max(valid.length, 1);
-    const callPct = (callDays / total) * 100;
-    const putPct = (putDays / total) * 100;
-
-    $('#callMoodFill').style.width = `${callPct}%`;
-    $('#putMoodFill').style.width = `${putPct}%`;
-    $('#callMoodPct').textContent = `${callPct.toFixed(1)}% Call days`;
-    $('#putMoodPct').textContent = `${putPct.toFixed(1)}% Put days`;
+    return {
+      callDays,
+      putDays,
+      callPct: (callDays / total) * 100,
+      putPct: (putDays / total) * 100,
+    };
   }
 
   function renderMiniChart(container, series) {
@@ -220,6 +228,20 @@
       <line class="threshold" x1="4" y1="${thresholdY}" x2="256" y2="${thresholdY}" />
       <path class="curve curve-above" clip-path="url(#above-${container.dataset.symbol})" d="${path}" />
       <path class="curve curve-below" clip-path="url(#below-${container.dataset.symbol})" d="${path}" />
+    `;
+  }
+
+  function renderMiniMood(container, series) {
+    const mood = getMood(series);
+    container.innerHTML = `
+      <div class="mini-mood-bar" aria-hidden="true">
+        <div class="mini-mood-fill call" style="width: ${mood.callPct}%"></div>
+        <div class="mini-mood-fill put" style="width: ${mood.putPct}%"></div>
+      </div>
+      <div class="mini-mood-values">
+        <span>${mood.callPct.toFixed(0)}% Call</span>
+        <span>${mood.putPct.toFixed(0)}% Put</span>
+      </div>
     `;
   }
 
@@ -293,9 +315,10 @@
     if (list.some((item) => item.symbol === symbol)) return;
     list.push({
       symbol,
-      days: selectedDays,
+      days: 20,
       builtAt: new Date().toISOString(),
-      series: currentSymbol === symbol ? currentSeries : makeFallbackSeries(symbol, selectedDays),
+      refreshedAt: new Date().toISOString(),
+      series: currentSymbol === symbol ? currentSeries.slice(-20) : [],
     });
     saveWatchlist(list);
     syncServerWatchlist(list);
@@ -327,8 +350,10 @@
       <article class="mini-card">
         <button class="remove" type="button" aria-label="Remove ${escapeHtml(item.symbol)}" data-remove="${escapeHtml(item.symbol)}">×</button>
         <div class="mini-symbol">${escapeHtml(item.symbol)}</div>
-        <div class="mini-date">Built ${formatDateTime(item.builtAt)} · ${item.days || 20}D</div>
+        <div class="mini-date">Built ${formatDateTime(item.builtAt)} · 20D</div>
         <svg class="mini-chart" data-symbol="${escapeHtml(item.symbol)}" viewBox="0 0 260 100" preserveAspectRatio="none"></svg>
+        <div class="mini-mood" data-mood="${escapeHtml(item.symbol)}" aria-label="${escapeHtml(item.symbol)} call and put day occupancy"></div>
+        ${item.error ? `<div class="mini-status">${escapeHtml(item.error)}</div>` : ''}
       </article>
     `).join('');
 
@@ -338,8 +363,50 @@
 
     grid.querySelectorAll('.mini-chart').forEach((svg) => {
       const item = list.find((entry) => entry.symbol === svg.dataset.symbol);
-      renderMiniChart(svg, item?.series?.length ? item.series : makeFallbackSeries(svg.dataset.symbol, 20));
+      renderMiniChart(svg, item?.series?.length ? item.series.slice(-20) : []);
     });
+
+    grid.querySelectorAll('.mini-mood').forEach((meter) => {
+      const item = list.find((entry) => entry.symbol === meter.dataset.mood);
+      renderMiniMood(meter, item?.series?.length ? item.series.slice(-20) : []);
+    });
+  }
+
+  async function refreshWatchlist() {
+    const button = $('#refreshWatchBtn');
+    const list = getWatchlist();
+    if (!list.length) return;
+
+    button.disabled = true;
+    button.classList.add('loading');
+    button.innerHTML = '<span aria-hidden="true">↻</span>Refreshing';
+
+    const refreshed = [];
+    for (const item of list) {
+      try {
+        const series = await fetchMarketdataSeries(item.symbol, 20);
+        refreshed.push({
+          ...item,
+          days: 20,
+          refreshedAt: new Date().toISOString(),
+          series: series.slice(-20),
+          error: '',
+        });
+      } catch (_) {
+        refreshed.push({
+          ...item,
+          days: 20,
+          error: '20D live data unavailable',
+        });
+      }
+    }
+
+    saveWatchlist(refreshed);
+    syncServerWatchlist(refreshed);
+    renderWatchlist();
+    button.disabled = false;
+    button.classList.remove('loading');
+    button.innerHTML = '<span aria-hidden="true">↻</span>Refresh';
   }
 
   function syncServerWatchlist(list) {

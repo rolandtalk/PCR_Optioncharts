@@ -480,6 +480,48 @@ svg {
   font-size: 0.84rem;
 }
 
+.watch-tools {
+  display: grid;
+  gap: 10px;
+}
+
+.refresh-watch {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  border-radius: 14px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #bae6fd;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.refresh-watch span {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.refresh-watch.loading span {
+  animation: spin 900ms linear infinite;
+}
+
+.refresh-watch:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 select {
   width: 100%;
   min-height: 48px;
@@ -498,7 +540,7 @@ select {
 
 .mini-card {
   position: relative;
-  min-height: 178px;
+  min-height: 220px;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -537,6 +579,43 @@ select {
 .mini-chart {
   height: 96px;
   margin-top: 12px;
+}
+
+.mini-mood {
+  margin-top: 10px;
+}
+
+.mini-mood-bar {
+  display: flex;
+  height: 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.mini-mood-fill.call {
+  background: rgba(56, 189, 248, 0.78);
+}
+
+.mini-mood-fill.put {
+  background: rgba(251, 113, 133, 0.72);
+}
+
+.mini-mood-values {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.mini-status {
+  margin-top: 8px;
+  color: #fecdd3;
+  font-size: 0.76rem;
+  font-weight: 900;
 }
 
 .empty-state {
