@@ -356,13 +356,13 @@ svg {
 }
 
 .curve-above {
-  stroke: var(--accent);
-  filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.42));
+  stroke: var(--red);
+  filter: drop-shadow(0 0 12px rgba(251, 113, 133, 0.34));
 }
 
 .curve-below {
-  stroke: var(--red);
-  filter: drop-shadow(0 0 12px rgba(251, 113, 133, 0.34));
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.42));
 }
 
 .dot {
@@ -399,11 +399,11 @@ svg {
   height: 10px;
   margin-right: 7px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--red);
 }
 
 .legend .below::before {
-  background: var(--red);
+  background: var(--accent);
 }
 
 .legend .neutral::before {
