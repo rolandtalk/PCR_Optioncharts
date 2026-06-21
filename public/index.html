@@ -1,132 +1,98 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Option Mkt Info</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>PCR Tracker</title>
   <link rel="stylesheet" href="/css/style.css" />
-  <style>
-    /* Critical fallback so content is never invisible */
-    body { margin: 0; background: #1a1d24; color: #e8eaed; font-family: system-ui, sans-serif; }
-    .header { background: #22262e; padding: 1rem 1.5rem; border-bottom: 1px solid #3c4043; }
-    .major-table th, .major-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #3c4043; }
-    .watchlist-section { background: #22262e; padding: 1.25rem; border-radius: 8px; margin-top: 1.5rem; }
-    .btn-deduct { width: 32px; height: 32px; border-radius: 50%; background: #ea4335; border: none; color: white; cursor: pointer; }
-  </style>
 </head>
 <body>
-  <header class="header">
-    <h1 class="logo">Option Mkt Info</h1>
-    <div class="header-actions">
-      <div class="portfolio-switch" role="group" aria-label="Portfolio">
-        <button type="button" class="portfolio-btn is-selected" data-portfolio="1" aria-pressed="true">RH</button>
-        <button type="button" class="portfolio-btn" data-portfolio="2" aria-pressed="false">AL</button>
-        <button type="button" class="portfolio-btn" data-portfolio="3" aria-pressed="false">33</button>
-        <button type="button" class="portfolio-btn" data-portfolio="4" aria-pressed="false">DF</button>
-        <button type="button" class="portfolio-btn" data-portfolio="5" aria-pressed="false">55</button>
-        <button type="button" class="portfolio-btn" data-portfolio="6" aria-pressed="false">66</button>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">PCR</div>
+        <div>
+          <h1>Put/Call Ratio</h1>
+          <p>Mobile tracker</p>
+        </div>
       </div>
-    </div>
-  </header>
+      <nav class="nav" aria-label="Primary navigation">
+        <a class="active" href="#main-page" data-view-link="main-page">Main</a>
+        <a href="#watchlist-page" data-view-link="watchlist-page">Watchlist</a>
+      </nav>
+    </header>
 
-  <main class="main">
-    <div id="view-home">
-    <section class="table-section">
-      <div class="update-row">
-        <button type="button" class="btn-update" id="btnUpdate">Update</button>
-        <span class="update-timer" id="updateTimer" aria-live="polite"></span>
-        <span class="last-update" id="lastUpdate">Last updated: —</span>
-      </div>
-      <h2>Major Table <span class="sub">(last update)</span></h2>
-      <div class="table-wrap">
-        <table class="major-table" id="majorTable">
-          <thead>
-            <tr>
-              <th class="sortable" data-sort="symbol">Symbol<span class="sort-icon"></span></th>
-              <th class="sortable" data-sort="IV">IV<span class="sort-icon"></span></th>
-              <th class="sortable" data-sort="IVR">IVR<span class="sort-icon"></span></th>
-              <th class="sortable" data-sort="TOI">TOI<span class="sort-icon"></span></th>
-              <th class="num pct-col sortable" data-sort="toiChangePct">%<span class="sort-icon"></span></th>
-              <th class="sortable" data-sort="PCRO">PCRO<span class="sort-icon"></span></th>
-              <th class="sortable" data-sort="TOA">TOA<span class="sort-icon"></span></th>
-              <th class="sortable" data-sort="TV">TV<span class="sort-icon"></span></th>
-              <th class="num pct-col sortable" data-sort="tvChangePct">%<span class="sort-icon"></span></th>
-              <th class="sortable" data-sort="PCRV">PCRV<span class="sort-icon"></span></th>
-              <th class="sortable" data-sort="TVA">TVA<span class="sort-icon"></span></th>
-            </tr>
-          </thead>
-          <tbody id="tableBody">
-            <tr>
-              <td class="symbol">—</td>
-              <td>—</td>
-              <td>—</td>
-              <td>—</td>
-              <td class="num pct-col">—</td>
-              <td>—</td>
-              <td>—</td>
-              <td>—</td>
-              <td class="num pct-col">—</td>
-              <td>—</td>
-              <td>—</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <section id="main-page" class="view active" aria-labelledby="main-title">
+      <section class="card control-card">
+        <div class="section-label">Main Page</div>
+        <h2 id="main-title">Build a PCR curve</h2>
+        <p class="supporting-copy">Enter a symbol, choose 20 or 60 days, then draw the ratio trace.</p>
 
-    <section class="watchlist-section">
-      <div class="watchlist-head">
-        <h2>Watchlist <span class="count" id="watchlistCount">1/30</span></h2>
-        <p class="section-label">STOCKS</p>
-      </div>
-      <div class="watchlist-actions">
-        <input type="text" id="addSymbol" placeholder="Add symbol (e.g. AVAV)" maxlength="12" />
-        <button type="button" class="btn-add" id="btnAdd">Add</button>
-      </div>
-      <ul class="watchlist" id="watchlist">
-        <li data-symbol="AVAV">
-          <span class="symbol-icon" aria-hidden="true">A</span>
-          <div class="symbol-info">
-            <div class="symbol-primary">AVAV</div>
-            <div class="symbol-secondary">AVAV.US</div>
+        <div class="field">
+          <label for="symbolInput">Symbol</label>
+          <input id="symbolInput" type="text" value="AAPL" autocomplete="off" autocapitalize="characters" maxlength="12" inputmode="latin" />
+        </div>
+
+        <div class="field">
+          <label>Lookback period</label>
+          <div class="segmented" role="group" aria-label="Choose days">
+            <button class="segment active" type="button" data-days="20">20 days</button>
+            <button class="segment" type="button" data-days="60">60 days</button>
           </div>
-          <button type="button" class="btn-deduct" aria-label="Remove AVAV from watchlist"></button>
-        </li>
-      </ul>
-    </section>
-    </div>
+        </div>
 
-    <div id="view-symbol" class="hidden">
-      <div class="symbol-page-header">
-        <a href="#" class="link-back" id="linkBack">← Back</a>
-        <h1 class="symbol-page-title" id="symbolPageTitle">—</h1>
-      </div>
-      <section class="table-section symbol-records-section">
-        <h2>Scrape records <span class="sub">(up to 2 per day: Timed + latest Manual)</span></h2>
-        <div class="table-wrap">
-          <table class="major-table symbol-records-table" id="symbolRecordsTable">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Time</th>
-                <th>IV</th>
-                <th>IVR</th>
-                <th>TOI</th>
-                <th class="num pct-col">%</th>
-                <th>PCRO</th>
-                <th>TOA</th>
-                <th>TV</th>
-                <th class="num pct-col">%</th>
-                <th>PCRV</th>
-                <th>TVA</th>
-              </tr>
-            </thead>
-            <tbody id="symbolRecordsBody">
-            </tbody>
-          </table>
+        <div class="stats" aria-label="Curve summary">
+          <div class="stat"><span>Latest</span><strong id="latestRatio">—</strong></div>
+          <div class="stat"><span>High</span><strong id="highRatio">—</strong></div>
+          <div class="stat"><span>Low</span><strong id="lowRatio">—</strong></div>
+        </div>
+
+        <div class="actions">
+          <button class="primary" type="button" id="drawBtn">Draw PCR Trace</button>
+          <button class="secondary" type="button" id="addBtn">Add to Watchlist</button>
         </div>
       </section>
-    </div>
+
+      <section class="card chart-card" aria-labelledby="chart-title">
+        <div class="chart-header">
+          <div>
+            <div class="section-label">PCR Trace</div>
+            <h2 id="chart-title">AAPL · Last 20 records</h2>
+            <p>Blue is above 1.0. Red is below 1.0.</p>
+          </div>
+          <span class="pill" id="statusPill">Ready</span>
+        </div>
+
+        <div class="chart-wrap" role="img" aria-label="Put Call Ratio line chart">
+          <svg id="mainChart" viewBox="0 0 720 280" preserveAspectRatio="none"></svg>
+        </div>
+        <div class="axis-labels" id="axisLabels"><span>—</span><span>—</span><span>—</span><span>—</span></div>
+        <div class="legend">
+          <span>Above 1.0</span>
+          <span class="below">Below 1.0</span>
+          <span class="neutral">PCR = 1.0</span>
+        </div>
+      </section>
+    </section>
+
+    <section id="watchlist-page" class="view" aria-labelledby="watch-title">
+      <section class="card watchlist">
+        <div class="watch-header">
+          <div>
+            <div class="section-label">Watchlist Page</div>
+            <h2 id="watch-title">Saved curves</h2>
+          </div>
+          <label class="sorter">Sort build date
+            <select id="sortSelect" aria-label="Sort watchlist by build date">
+              <option value="desc">Newest first</option>
+              <option value="asc">Oldest first</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="watch-grid" id="watchGrid"></div>
+      </section>
+    </section>
   </main>
 
   <script src="/js/app.js"></script>

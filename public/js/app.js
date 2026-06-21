@@ -1,653 +1,384 @@
 (function () {
-  const WATCHLIST_KEY_LEGACY = 'optioncharts_watchlist';
-  const PORTFOLIO_KEY = 'optioncharts_portfolio';
-  const MAX_WATCHLIST = 30;
-  const DEFAULT_PORTFOLIO = '1';
+  const WATCHLIST_KEY = 'pcr_tracker_watchlist';
+  const DEFAULT_SYMBOL = 'AAPL';
+  const CHART = {
+    width: 720,
+    height: 280,
+    left: 42,
+    right: 700,
+    top: 18,
+    bottom: 242,
+    minRatio: 0.5,
+    maxRatio: 1.4,
+    threshold: 1.0,
+  };
+
+  const sampleSeries = [
+    { date: '2026-05-23', ratio: 0.72 },
+    { date: '2026-05-27', ratio: 0.84 },
+    { date: '2026-05-30', ratio: 1.05 },
+    { date: '2026-06-03', ratio: 0.78 },
+    { date: '2026-06-06', ratio: 0.63 },
+    { date: '2026-06-10', ratio: 1.14 },
+    { date: '2026-06-13', ratio: 1.03 },
+    { date: '2026-06-17', ratio: 1.26 },
+    { date: '2026-06-19', ratio: 0.92 },
+    { date: '2026-06-21', ratio: 1.04 },
+  ];
 
   let apiBase = '';
-  function getApiUrl(path) {
-    return (apiBase || '') + path;
+  let selectedDays = 20;
+  let currentSymbol = DEFAULT_SYMBOL;
+  let currentSeries = sampleSeries;
+
+  const $ = (selector) => document.querySelector(selector);
+
+  async function init() {
+    await loadConfig();
+    bindNavigation();
+    bindControls();
+    renderChart(currentSymbol, currentSeries, selectedDays);
+    updateStats(currentSeries);
+    renderWatchlist();
   }
 
   async function loadConfig() {
     try {
-      const r = await fetch('/config.json');
-      const c = await r.json();
-      if (location.hostname.includes('pages.dev') && c.railwayUrl) {
-        apiBase = (c.railwayUrl || '').replace(/\/$/, '');
-      } else if (c.apiBase) {
-        apiBase = (c.apiBase || '').replace(/\/$/, '');
+      const response = await fetch('/config.json', { cache: 'no-store' });
+      const config = await response.json();
+      if (location.hostname.includes('pages.dev') && config.railwayUrl) {
+        apiBase = config.railwayUrl.replace(/\/$/, '');
+      } else if (config.apiBase) {
+        apiBase = config.apiBase.replace(/\/$/, '');
       }
-    } catch (_) {}
-    // Fallback when on Cloudflare Pages so API always points to Railway even if config failed
-    if (location.hostname.includes('pages.dev') && !apiBase) {
-      apiBase = 'https://optionscan.up.railway.app';
+    } catch (_) {
+      apiBase = '';
     }
   }
 
-  async function seedWatchlistsFromRepo() {
-    try {
-      const r = await fetch('/data/watchlists.json');
-      const data = await r.json();
-      for (let i = 1; i <= 6; i++) {
-        const key = getWatchlistKey(String(i));
-        const existing = localStorage.getItem(key);
-        if (!existing || existing === '[]') {
-          const list = data[String(i)];
-          if (Array.isArray(list)) {
-            localStorage.setItem(key, JSON.stringify(list.slice(0, MAX_WATCHLIST)));
-          }
-        }
-      }
-    } catch (_) {}
+  function apiUrl(path) {
+    return apiBase + path;
   }
 
-  /** Load watchlists from server (sync across devices). Only overwrite local when server has at least as much data, so stale server never wipes a fuller local list. */
-  async function loadWatchlistsFromServer() {
-    if (!getApiUrl('/api/watchlists')) return;
-    try {
-      const r = await fetch(getApiUrl('/api/watchlists'));
-      if (!r.ok) return;
-      const data = await r.json();
-      if (!data || typeof data !== 'object') return;
-      let serverTotal = 0;
-      for (let i = 1; i <= 6; i++) {
-        const list = data[String(i)];
-        if (Array.isArray(list)) serverTotal += list.length;
-      }
-      let localTotal = 0;
-      for (let i = 1; i <= 6; i++) {
-        localTotal += getWatchlistForPortfolio(String(i)).length;
-      }
-      if (serverTotal === 0) return;
-      if (localTotal > serverTotal) {
-        syncWatchlistsToServer();
-        return;
-      }
-      for (let i = 1; i <= 6; i++) {
-        const key = String(i);
-        const list = Array.isArray(data[key]) ? data[key] : [];
-        localStorage.setItem(getWatchlistKey(key), JSON.stringify(list.slice(0, MAX_WATCHLIST)));
-      }
-    } catch (_) {}
-  }
-
-  /** Push current watchlists to server so other devices see the same data. */
-  function syncWatchlistsToServer() {
-    const payload = {};
-    for (let i = 1; i <= 6; i++) {
-      payload[String(i)] = getWatchlistForPortfolio(String(i));
-    }
-    fetch(getApiUrl('/api/watchlists'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }).catch(() => {});
-  }
-
-  function getWatchlistKey(portfolio) {
-    return 'optioncharts_watchlist_' + (portfolio || DEFAULT_PORTFOLIO);
-  }
-
-  function getPortfolio() {
-    try {
-      const p = localStorage.getItem(PORTFOLIO_KEY);
-      return p && /^[1-6]$/.test(p) ? p : DEFAULT_PORTFOLIO;
-    } catch {
-      return DEFAULT_PORTFOLIO;
-    }
-  }
-
-  function setPortfolio(portfolio) {
-    if (portfolio && /^[1-6]$/.test(portfolio)) {
-      localStorage.setItem(PORTFOLIO_KEY, portfolio);
-    }
-  }
-
-  function migrateLegacyWatchlist() {
-    try {
-      const raw = localStorage.getItem(WATCHLIST_KEY_LEGACY);
-      if (raw) {
-        const list = JSON.parse(raw);
-        if (Array.isArray(list)) {
-          localStorage.setItem(getWatchlistKey('1'), JSON.stringify(list.slice(0, MAX_WATCHLIST)));
-        }
-        localStorage.removeItem(WATCHLIST_KEY_LEGACY);
-      }
-      if (!localStorage.getItem(PORTFOLIO_KEY)) {
-        localStorage.setItem(PORTFOLIO_KEY, DEFAULT_PORTFOLIO);
-      }
-    } catch (_) {}
-  }
-
-  function getWatchlistForPortfolio(portfolio) {
-    const key = getWatchlistKey(portfolio);
-    try {
-      const raw = localStorage.getItem(key);
-      const list = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(list)) return list.slice(0, MAX_WATCHLIST);
-      return portfolio === '1' ? ['AVAV'] : [];
-    } catch {
-      return portfolio === '1' ? ['AVAV'] : [];
-    }
-  }
-
-  function getWatchlist() {
-    migrateLegacyWatchlist();
-    return getWatchlistForPortfolio(getPortfolio());
-  }
-
-  function setWatchlist(list) {
-    const portfolio = getPortfolio();
-    const trimmed = list.slice(0, MAX_WATCHLIST);
-    localStorage.setItem(getWatchlistKey(portfolio), JSON.stringify(trimmed));
-    return trimmed;
-  }
-
-  // Placeholder row when watchlist is empty (shows table structure only)
-  const EMPTY_TABLE_ROW = {
-    symbol: '—',
-    IV: '—',
-    IVR: '—',
-    TOI: '—',
-    toiChangePct: '—',
-    PCRO: '—',
-    TOA: '—',
-    TV: '—',
-    tvChangePct: '—',
-    PCRV: '—',
-    TVA: '—',
-  };
-
-  function isTickerLike(s) {
-    const t = (s || '').trim().toUpperCase();
-    return t.length >= 1 && t.length <= 6 && /^[A-Z0-9.-]+$/.test(t) && t !== '—';
-  }
-
-  let lastTableRows = [];
-  let sortState = { key: null, dir: 1 };
-
-  function parseNum(val) {
-    if (val == null || String(val).trim() === '' || String(val).trim() === '—') return NaN;
-    const n = parseFloat(String(val).replace(/%|,/g, '').replace(/^\+/, '').trim());
-    return Number.isNaN(n) ? NaN : n;
-  }
-
-  function getSortValue(row, key) {
-    const v = row[key];
-    if (key === 'symbol') return (v || '').toString().trim().toUpperCase() || '—';
-    const num = parseNum(v);
-    return Number.isNaN(num) ? null : num;
-  }
-
-  function applySort() {
-    if (!lastTableRows.length || lastTableRows[0].symbol === '—') return lastTableRows;
-    if (!sortState.key) return lastTableRows;
-    const key = sortState.key;
-    const dir = sortState.dir;
-    return lastTableRows.slice().sort((a, b) => {
-      const va = getSortValue(a, key);
-      const vb = getSortValue(b, key);
-      if (key === 'symbol') {
-        const c = String(va).localeCompare(String(vb), undefined, { sensitivity: 'base' });
-        return dir * c;
-      }
-      if (va == null && vb == null) return 0;
-      if (va == null) return dir;
-      if (vb == null) return -dir;
-      return dir * (va - vb);
-    });
-  }
-
-  function updateSortIcons() {
-    document.querySelectorAll('#majorTable thead .sortable').forEach((th) => {
-      const icon = th.querySelector('.sort-icon');
-      if (!icon) return;
-      const key = th.dataset.sort;
-      if (sortState.key === key) {
-        icon.textContent = sortState.dir === 1 ? '\u25B2' : '\u25BC';
-        icon.setAttribute('aria-label', sortState.dir === 1 ? 'ascending' : 'descending');
-      } else {
-        icon.textContent = '\u2195';
-        icon.setAttribute('aria-label', 'sort');
-      }
-    });
-  }
-
-  function bindTableSort() {
-    document.querySelectorAll('#majorTable thead .sortable').forEach((th) => {
-      th.addEventListener('click', () => {
-        const key = th.dataset.sort;
-        if (!key) return;
-        if (sortState.key === key) {
-          sortState.dir = -sortState.dir;
-        } else {
-          sortState.key = key;
-          sortState.dir = 1;
-        }
-        renderTable(lastTableRows.length ? applySort() : [EMPTY_TABLE_ROW]);
-        updateSortIcons();
+  function bindNavigation() {
+    document.querySelectorAll('[data-view-link]').forEach((link) => {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        showView(link.dataset.viewLink);
       });
     });
-  }
-
-  function renderTable(rows) {
-    const tbody = document.getElementById('tableBody');
-    if (!tbody) return;
-    if (rows && rows.length > 0 && (rows[0].symbol || '').toString().trim() !== '—') {
-      lastTableRows = rows.slice();
-    } else {
-      lastTableRows = [];
-    }
-    const toRender = sortState.key && lastTableRows.length ? applySort() : (rows && rows.length ? rows : [EMPTY_TABLE_ROW]);
-    const displayRows = toRender.length ? toRender : [EMPTY_TABLE_ROW];
-    tbody.innerHTML = displayRows
-      .map(
-        (r) => {
-          const sym = (r.symbol || r.ticker || '').toString().trim().toUpperCase();
-          const symbolCell = isTickerLike(sym)
-            ? `<a href="#/symbol/${escapeHtml(sym)}" class="symbol-link">${escapeHtml(sym)}</a>`
-            : escapeHtml(r.symbol ?? '—');
-          const rowAttr = isTickerLike(sym) ? ` data-symbol="${escapeHtml(sym)}"` : '';
-          return `
-      <tr${rowAttr}>
-        <td class="symbol">${symbolCell}</td>
-        <td>${escapeHtml(percentNoDecimals(r.IV))}</td>
-        <td>${escapeHtml(percentNoDecimals(r.IVR))}</td>
-        <td>${escapeHtml(cellValue(r.TOI))}</td>
-        <td class="num pct-col ${changeClass(r.toiChangePct)}">${escapeHtml(percentNoDecimals(r.toiChangePct))}</td>
-        <td>${escapeHtml(cellValue(r.PCRO))}</td>
-        <td>${escapeHtml(percentNoDecimals(r.TOA))}</td>
-        <td>${escapeHtml(cellValue(r.TV))}</td>
-        <td class="num pct-col ${changeClass(r.tvChangePct)}">${escapeHtml(percentNoDecimals(r.tvChangePct))}</td>
-        <td>${escapeHtml(cellValue(r.PCRV))}</td>
-        <td>${escapeHtml(percentNoDecimals(r.TVA))}</td>
-      </tr>
-    `;
-        }
-      )
-      .join('');
-    updateSortIcons();
-  }
-
-  function changeClass(val) {
-    if (val == null || val === '—') return '';
-    const n = parseFloat(String(val).replace(/[+%]/g, ''));
-    if (Number.isNaN(n)) return '';
-    return n >= 0 ? 'change-up' : 'change-down';
-  }
-
-  function escapeHtml(s) {
-    if (s == null) return '';
-    const div = document.createElement('div');
-    div.textContent = s;
-    return div.innerHTML;
-  }
-
-  function cellValue(val) {
-    if (val == null || String(val).trim() === '') return '—';
-    return val;
-  }
-
-  function percentNoDecimals(val) {
-    if (val == null || String(val).trim() === '') return '—';
-    const s = String(val).trim();
-    const sign = s.startsWith('+') ? '+' : s.startsWith('-') ? '-' : '';
-    const n = parseFloat(s.replace(/[+%]/g, '').replace(/,/g, ''));
-    if (Number.isNaN(n)) return '—';
-    return sign + Math.round(n) + '%';
-  }
-
-  function renderWatchlist() {
-    const list = getWatchlist();
-    const ul = document.getElementById('watchlist');
-    const countEl = document.getElementById('watchlistCount');
-    if (!ul || !countEl) return;
-    countEl.textContent = `${list.length}/${MAX_WATCHLIST}`;
-    if (list.length === 0) {
-      ul.innerHTML = '<li class="watchlist-empty">No symbols. Add one above.</li>';
-      return;
-    }
-    ul.innerHTML = list
-      .map((symbol) => {
-        const letter = symbol.charAt(0).toUpperCase();
-        return `
-      <li data-symbol="${escapeHtml(symbol)}">
-        <span class="symbol-icon" aria-hidden="true">${letter}</span>
-        <div class="symbol-info">
-          <div class="symbol-primary">${escapeHtml(symbol)}</div>
-          <div class="symbol-secondary">${symbol}.US</div>
-        </div>
-        <button type="button" class="btn-deduct" aria-label="Remove ${escapeHtml(symbol)} from watchlist"></button>
-      </li>
-    `;
-      })
-      .join('');
-    ul.querySelectorAll('.btn-deduct').forEach((btn) => {
-      btn.addEventListener('click', async function () {
-        const li = this.closest('li');
-        const symbol = li && li.dataset.symbol;
-        if (!symbol) return;
-        try {
-          await fetch(getApiUrl(`/api/options/${encodeURIComponent(symbol)}/snapshots`), { method: 'DELETE' });
-        } catch (_) {}
-        const next = getWatchlist().filter((s) => s !== symbol);
-        setWatchlist(next);
-        syncWatchlistsToServer();
-        if (getSymbolFromHash() === symbol) {
-          window.location.hash = '';
-        }
-        renderWatchlist();
-        fetchTable();
-      });
-    });
-  }
-
-  function setLastUpdate(isoOrNull) {
-    const el = document.getElementById('lastUpdate');
-    if (!el) return;
-    if (!isoOrNull) {
-      el.textContent = 'Last updated: —';
-      return;
-    }
-    const d = new Date(isoOrNull);
-    el.textContent = `Last updated: ${d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}`;
-  }
-
-  function placeholderRow(symbol) {
-    return { symbol, IV: '—', IVR: '—', TOI: '—', toiChangePct: '—', PCRO: '—', TOA: '—', TV: '—', tvChangePct: '—', PCRV: '—', TVA: '—' };
-  }
-
-  function normalizeTableRow(r, symbol) {
-    const sym = (r && (r.symbol || r.ticker)) || symbol;
-    return {
-      symbol: sym != null && String(sym).trim() !== '' ? String(sym).trim().toUpperCase() : symbol,
-      IV: cellValue(r && r.IV),
-      IVR: cellValue(r && r.IVR),
-      TOI: cellValue(r && r.TOI),
-      toiChangePct: cellValue(r && r.toiChangePct),
-      PCRO: cellValue(r && r.PCRO),
-      TOA: cellValue(r && r.TOA),
-      TV: cellValue(r && r.TV),
-      tvChangePct: cellValue(r && r.tvChangePct),
-      PCRV: cellValue(r && r.PCRV),
-      TVA: cellValue(r && r.TVA),
-    };
-  }
-
-  async function fetchTable() {
-    const list = getWatchlist();
-    if (list.length === 0) {
-      renderTable([EMPTY_TABLE_ROW]);
-      setLastUpdate(null);
-      return;
-    }
-    try {
-      const params = new URLSearchParams({ symbols: list.join(',') });
-      const res = await fetch(getApiUrl(`/api/table?${params}`));
-      if (!res.ok) throw new Error('Table request failed');
-      const data = await res.json();
-      const apiRows = Array.isArray(data.rows) ? data.rows : [];
-      const bySymbol = {};
-      for (const r of apiRows) {
-        const s = (r.symbol || r.ticker || '').toString().trim().toUpperCase();
-        if (s) bySymbol[s] = r;
-      }
-      const rows = list.map((symbol) => normalizeTableRow(bySymbol[symbol.toUpperCase()], symbol));
-      renderTable(rows);
-      setLastUpdate(data.lastUpdated || null);
-    } catch {
-      const listAgain = getWatchlist();
-      const fallback = listAgain.map((s) => normalizeTableRow(placeholderRow(s), s));
-      renderTable(fallback.length ? fallback : [EMPTY_TABLE_ROW]);
-      setLastUpdate(null);
-    }
-  }
-
-  function formatElapsed(seconds) {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `0:${String(s).padStart(2, '0')}`;
-  }
-
-  function bindUpdate() {
-    const btn = document.getElementById('btnUpdate');
-    const timerEl = document.getElementById('updateTimer');
-    if (!btn) return;
-    btn.addEventListener('click', async function () {
-      const list = getWatchlist();
-      if (list.length === 0) {
-        if (timerEl) {
-          timerEl.textContent = 'Add at least one symbol';
-          timerEl.classList.add('timer-done');
-          setTimeout(() => { timerEl.textContent = ''; timerEl.classList.remove('timer-done'); }, 3000);
-        }
-        return;
-      }
-      const label = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Updating…';
-      const start = Date.now();
-      let timerId = null;
-      if (timerEl) {
-        timerEl.textContent = '0:00';
-        timerEl.classList.add('timer-active');
-        timerId = setInterval(() => {
-          const sec = Math.floor((Date.now() - start) / 1000);
-          timerEl.textContent = formatElapsed(sec);
-        }, 1000);
-      }
-      let batchResults = [];
-      try {
-        const res = await fetch(getApiUrl('/api/options/scrape-batch'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ symbols: list }),
-        });
-        const data = await res.json();
-        if (data.results) batchResults = data.results;
-      } catch (_) {}
-      await fetchTable();
-      if (timerId) clearInterval(timerId);
-      if (timerEl) {
-        const elapsed = Math.floor((Date.now() - start) / 1000);
-        timerEl.textContent = `Completed in ${formatElapsed(elapsed)}`;
-        timerEl.classList.remove('timer-active');
-        timerEl.classList.add('timer-done');
-        setTimeout(() => {
-          timerEl.textContent = '';
-          timerEl.classList.remove('timer-done');
-        }, 3000);
-      }
-      batchResults.forEach((r, i) => {
-        const row = document.querySelector(`#majorTable tr[data-symbol="${r.ticker}"]`);
-        if (!row) return;
-        const cell = row.querySelector('td.symbol');
-        if (!cell) return;
-        const delay = i * 120;
-        setTimeout(() => {
-          cell.classList.remove('updated-success', 'updated-fail');
-          cell.classList.add(r.ok ? 'updated-success' : 'updated-fail');
-          setTimeout(() => cell.classList.remove('updated-success', 'updated-fail'), 4000);
-        }, delay);
-      });
-      btn.textContent = label;
-      btn.disabled = false;
-    });
-  }
-
-  function bindAdd() {
-    const input = document.getElementById('addSymbol');
-    const btn = document.getElementById('btnAdd');
-    if (!input || !btn) return;
-    function doAdd() {
-      const symbol = (input.value || '').trim().toUpperCase();
-      if (!symbol) return;
-      const list = getWatchlist();
-      if (list.includes(symbol)) {
-        input.value = '';
-        return;
-      }
-      if (list.length >= MAX_WATCHLIST) return;
-      setWatchlist([...list, symbol]);
-      syncWatchlistsToServer();
-      input.value = '';
-      renderWatchlist();
-      fetchTable();
-    }
-    btn.addEventListener('click', doAdd);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') doAdd();
-    });
-  }
-
-  function applyPortfolioSelection(portfolio) {
-    const id = portfolio || getPortfolio();
-    document.querySelectorAll('.portfolio-btn').forEach(function (b) {
-      const selected = b.dataset.portfolio === id;
-      b.classList.toggle('is-selected', selected);
-      b.setAttribute('aria-pressed', selected ? 'true' : 'false');
-    });
-  }
-
-  function bindPortfolioSwitch() {
-    document.querySelectorAll('.portfolio-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const portfolio = this.dataset.portfolio;
-        if (!portfolio) return;
-        setPortfolio(portfolio);
-        applyPortfolioSelection(portfolio);
-        renderWatchlist();
-        fetchTable();
-      });
-    });
-  }
-
-  function getSymbolFromHash() {
-    const hash = (window.location.hash || '').replace(/^#\/?/, '');
-    const m = /^symbol\/([A-Z0-9.-]+)$/i.exec(hash);
-    return m ? m[1].toUpperCase() : null;
   }
 
   function showView(viewId) {
-    const home = document.getElementById('view-home');
-    const symbol = document.getElementById('view-symbol');
-    if (viewId === 'symbol') {
-      if (home) home.classList.add('hidden');
-      if (symbol) symbol.classList.remove('hidden');
-    } else {
-      if (home) home.classList.remove('hidden');
-      if (symbol) symbol.classList.add('hidden');
-    }
+    document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active', view.id === viewId));
+    document.querySelectorAll('[data-view-link]').forEach((link) => link.classList.toggle('active', link.dataset.viewLink === viewId));
+    history.replaceState(null, '', '#' + viewId);
+    if (viewId === 'watchlist-page') renderWatchlist();
   }
 
-  function renderSymbolRecords(symbol, records) {
-    const tbody = document.getElementById('symbolRecordsBody');
-    const titleEl = document.getElementById('symbolPageTitle');
-    if (titleEl) titleEl.textContent = symbol;
-    if (!tbody) return;
-    if (!records || records.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="12" class="empty-records">No scrape records yet.</td></tr>';
-      return;
-    }
-    function formatDateMMMDD(dayStr) {
-      if (!dayStr || dayStr.length !== 10) return '—';
-      const d = new Date(dayStr + 'T12:00:00Z');
-      const mon = d.toLocaleDateString('en-US', { month: 'short' });
-      const day = d.getUTCDate();
-      return mon + '-' + String(day).padStart(2, '0');
-    }
-    function formatTime(ts, source) {
-      if (!ts) return '—';
-      try {
-        const d = new Date(ts);
-        if (Number.isNaN(d.getTime())) return '—';
-        const time = d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false });
-        const suffix = (source === 'Timed') ? ' T' : ' M';
-        return time + suffix;
-      } catch (_) {
-        return '—';
-      }
-    }
-    tbody.innerHTML = records
-      .map((r) => {
-        const date = (r._day || (r.timestamp || '').slice(0, 10));
-        const dateLabel = formatDateMMMDD(date);
-        const source = r._source || (r.source === 'scheduled' ? 'Timed' : 'Manual');
-        const timeLabel = formatTime(r.timestamp, source);
-        return `
-      <tr>
-        <td>${escapeHtml(dateLabel)}</td>
-        <td>${escapeHtml(timeLabel)}</td>
-        <td>${escapeHtml(percentNoDecimals(r.IV))}</td>
-        <td>${escapeHtml(percentNoDecimals(r.IVR))}</td>
-        <td>${escapeHtml(cellValue(r.TOI))}</td>
-        <td class="num pct-col">${escapeHtml(r._toiChangePct ?? '—')}</td>
-        <td>${escapeHtml(cellValue(r.PCRO))}</td>
-        <td>${escapeHtml(percentNoDecimals(r.TOA))}</td>
-        <td>${escapeHtml(cellValue(r.TV))}</td>
-        <td class="num pct-col">${escapeHtml(r._tvChangePct ?? '—')}</td>
-        <td>${escapeHtml(cellValue(r.PCRV))}</td>
-        <td>${escapeHtml(percentNoDecimals(r.TVA))}</td>
-      </tr>
-    `;
-      })
-      .join('');
-  }
+  function bindControls() {
+    document.querySelectorAll('.segment').forEach((button) => {
+      button.addEventListener('click', () => {
+        selectedDays = Number(button.dataset.days || 20);
+        document.querySelectorAll('.segment').forEach((b) => b.classList.toggle('active', b === button));
+        renderChart(currentSymbol, currentSeries, selectedDays);
+      });
+    });
 
-  async function fetchSymbolDaily(symbol) {
-    try {
-      const res = await fetch(getApiUrl(`/api/options/${encodeURIComponent(symbol)}/snapshots/daily?limit=60`));
-      const data = await res.json();
-      if (data.records) {
-        renderSymbolRecords(symbol, data.records);
-      } else {
-        renderSymbolRecords(symbol, []);
-      }
-    } catch {
-      renderSymbolRecords(symbol, []);
-    }
-  }
-
-  function route() {
-    const symbol = getSymbolFromHash();
-    if (symbol) {
-      showView('symbol');
-      fetchSymbolDaily(symbol);
-    } else {
-      showView('home');
-    }
-  }
-
-  function bindBackLink() {
-    const link = document.getElementById('linkBack');
-    if (!link) return;
-    link.addEventListener('click', function (e) {
-      e.preventDefault();
-      window.location.hash = '';
+    $('#drawBtn').addEventListener('click', drawRequestedSymbol);
+    $('#addBtn').addEventListener('click', addCurrentSymbol);
+    $('#sortSelect').addEventListener('change', renderWatchlist);
+    $('#symbolInput').addEventListener('input', () => {
+      $('#symbolInput').value = cleanSymbol($('#symbolInput').value);
+      updateAddButton();
     });
   }
 
-  async function init() {
-    migrateLegacyWatchlist();
-    await loadConfig();
-    await seedWatchlistsFromRepo();
-    await loadWatchlistsFromServer();
-    applyPortfolioSelection(getPortfolio());
-    renderWatchlist();
-    fetchTable();
-    bindTableSort();
-    bindUpdate();
-    bindAdd();
-    bindPortfolioSwitch();
-    bindBackLink();
-    route();
-    window.addEventListener('hashchange', route);
+  async function drawRequestedSymbol() {
+    const symbol = cleanSymbol($('#symbolInput').value) || DEFAULT_SYMBOL;
+    currentSymbol = symbol;
+    setStatus('Loading', 'loading');
+    setButtonsBusy(true);
+    try {
+      currentSeries = await fetchSeries(symbol, selectedDays);
+      renderChart(symbol, currentSeries, selectedDays);
+      updateStats(currentSeries);
+      setStatus('Updated', '');
+    } catch (error) {
+      currentSeries = makeFallbackSeries(symbol, selectedDays);
+      renderChart(symbol, currentSeries, selectedDays);
+      updateStats(currentSeries);
+      setStatus('Sample data', 'error');
+    } finally {
+      setButtonsBusy(false);
+      updateAddButton();
+    }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  async function fetchSeries(symbol, days) {
+    const marketdataSeries = await fetchMarketdataSeries(symbol, days).catch(() => []);
+    if (marketdataSeries.length >= 2) return marketdataSeries;
+
+    const series = await fetchStoredSeries(symbol, days);
+    if (series.length >= 2) return series;
+
+    await fetch(apiUrl(`/api/options/${encodeURIComponent(symbol)}`), { cache: 'no-store' });
+    const refreshed = await fetchStoredSeries(symbol, days);
+    if (refreshed.length < 2) throw new Error('Not enough PCR records');
+    return refreshed;
   }
+
+  async function fetchMarketdataSeries(symbol, days) {
+    const response = await fetch(apiUrl(`/api/pcr/${encodeURIComponent(symbol)}?days=${encodeURIComponent(days)}`), { cache: 'no-store' });
+    if (!response.ok) throw new Error('Marketdata PCR request failed');
+    const payload = await response.json();
+    const points = Array.isArray(payload.points) ? payload.points : [];
+    return points
+      .map((point) => ({
+        date: point.date,
+        ratio: parseRatio(point.PCRV ?? point.PCRO),
+      }))
+      .filter((point) => point.date && Number.isFinite(point.ratio));
+  }
+
+  async function fetchStoredSeries(symbol, days) {
+    const response = await fetch(apiUrl(`/api/options/${encodeURIComponent(symbol)}/snapshots?limit=${days}`), { cache: 'no-store' });
+    if (!response.ok) throw new Error('Snapshot request failed');
+    const payload = await response.json();
+    const rows = Array.isArray(payload.snapshots) ? payload.snapshots : [];
+    return rows
+      .map((row) => ({
+        date: row.timestamp ? row.timestamp.slice(0, 10) : '',
+        ratio: parseRatio(row.PCRV ?? row.PCRO),
+      }))
+      .filter((point) => point.date && Number.isFinite(point.ratio))
+      .reverse();
+  }
+
+  function parseRatio(value) {
+    const ratio = Number.parseFloat(String(value ?? '').replace(/,/g, ''));
+    return Number.isFinite(ratio) ? ratio : NaN;
+  }
+
+  function renderChart(symbol, series, days) {
+    const visible = series.slice(-days);
+    const svg = $('#mainChart');
+    const points = toPoints(visible);
+    const path = pointsToPath(points);
+    const thresholdY = ratioToY(CHART.threshold);
+    const latest = points[points.length - 1];
+    const title = $('#chart-title');
+
+    title.textContent = `${symbol} · Last ${Math.min(days, visible.length)} records`;
+    svg.innerHTML = `
+      <defs>
+        <clipPath id="above-one-main"><rect x="0" y="0" width="${CHART.width}" height="${thresholdY}" /></clipPath>
+        <clipPath id="below-one-main"><rect x="0" y="${thresholdY}" width="${CHART.width}" height="${CHART.height - thresholdY}" /></clipPath>
+      </defs>
+      <line class="axis" x1="${CHART.left}" y1="${CHART.top}" x2="${CHART.left}" y2="${CHART.bottom}" />
+      <line class="axis" x1="${CHART.left}" y1="${CHART.bottom}" x2="${CHART.right}" y2="${CHART.bottom}" />
+      <line class="threshold" x1="${CHART.left}" y1="${thresholdY}" x2="${CHART.right}" y2="${thresholdY}" />
+      <text class="threshold-label" x="58" y="${thresholdY - 10}">1.0</text>
+      <text x="8" y="32" fill="#94a3b8" font-size="13">1.4</text>
+      <text x="8" y="${thresholdY}" fill="#94a3b8" font-size="13">1.0</text>
+      <text x="8" y="238" fill="#94a3b8" font-size="13">0.5</text>
+      <path class="curve curve-above" clip-path="url(#above-one-main)" d="${path}" />
+      <path class="curve curve-below" clip-path="url(#below-one-main)" d="${path}" />
+      ${latest ? `<circle class="dot" cx="${latest.x}" cy="${latest.y}" r="6" />` : ''}
+    `;
+    renderAxisLabels(visible);
+  }
+
+  function renderMiniChart(container, series) {
+    const points = toPoints(series.slice(-20), { width: 260, height: 100, left: 4, right: 256, top: 8, bottom: 90 });
+    const thresholdY = ratioToY(CHART.threshold, { top: 8, bottom: 90, minRatio: CHART.minRatio, maxRatio: CHART.maxRatio });
+    const path = pointsToPath(points);
+    container.innerHTML = `
+      <defs>
+        <clipPath id="above-${container.dataset.symbol}"><rect x="0" y="0" width="260" height="${thresholdY}" /></clipPath>
+        <clipPath id="below-${container.dataset.symbol}"><rect x="0" y="${thresholdY}" width="260" height="${100 - thresholdY}" /></clipPath>
+      </defs>
+      <line class="threshold" x1="4" y1="${thresholdY}" x2="256" y2="${thresholdY}" />
+      <path class="curve curve-above" clip-path="url(#above-${container.dataset.symbol})" d="${path}" />
+      <path class="curve curve-below" clip-path="url(#below-${container.dataset.symbol})" d="${path}" />
+    `;
+  }
+
+  function toPoints(series, box = CHART) {
+    const span = Math.max(series.length - 1, 1);
+    return series.map((point, index) => ({
+      x: box.left + ((box.right - box.left) * index) / span,
+      y: ratioToY(point.ratio, box),
+      ratio: point.ratio,
+      date: point.date,
+    }));
+  }
+
+  function ratioToY(ratio, box = CHART) {
+    const clamped = Math.min(box.maxRatio, Math.max(box.minRatio, ratio));
+    const pct = (clamped - box.minRatio) / (box.maxRatio - box.minRatio);
+    return box.bottom - pct * (box.bottom - box.top);
+  }
+
+  function pointsToPath(points) {
+    if (!points.length) return '';
+    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+    return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
+  }
+
+  function renderAxisLabels(series) {
+    const labels = $('#axisLabels');
+    if (!series.length) {
+      labels.innerHTML = '<span>—</span><span>—</span><span>—</span><span>—</span>';
+      return;
+    }
+    const picks = [0, Math.floor(series.length / 3), Math.floor((series.length * 2) / 3), series.length - 1];
+    labels.innerHTML = picks.map((index) => `<span>${formatShortDate(series[index]?.date)}</span>`).join('');
+  }
+
+  function updateStats(series) {
+    const values = series.map((point) => point.ratio).filter(Number.isFinite);
+    const latest = values[values.length - 1];
+    $('#latestRatio').textContent = formatRatio(latest);
+    $('#highRatio').textContent = formatRatio(Math.max(...values));
+    $('#lowRatio').textContent = formatRatio(Math.min(...values));
+  }
+
+  function getWatchlist() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function saveWatchlist(list) {
+    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(list));
+  }
+
+  function addCurrentSymbol() {
+    const symbol = cleanSymbol($('#symbolInput').value) || currentSymbol;
+    const list = getWatchlist();
+    if (list.some((item) => item.symbol === symbol)) return;
+    list.push({
+      symbol,
+      days: selectedDays,
+      builtAt: new Date().toISOString(),
+      series: currentSymbol === symbol ? currentSeries : makeFallbackSeries(symbol, selectedDays),
+    });
+    saveWatchlist(list);
+    syncServerWatchlist(list);
+    updateAddButton();
+    showView('watchlist-page');
+  }
+
+  function removeSymbol(symbol) {
+    const list = getWatchlist().filter((item) => item.symbol !== symbol);
+    saveWatchlist(list);
+    syncServerWatchlist(list);
+    renderWatchlist();
+  }
+
+  function renderWatchlist() {
+    const grid = $('#watchGrid');
+    const sortDir = $('#sortSelect')?.value || 'desc';
+    const list = getWatchlist().sort((a, b) => {
+      const result = String(a.builtAt || '').localeCompare(String(b.builtAt || ''));
+      return sortDir === 'asc' ? result : -result;
+    });
+
+    if (!list.length) {
+      grid.innerHTML = '<div class="empty-state">No saved symbols yet.</div>';
+      return;
+    }
+
+    grid.innerHTML = list.map((item) => `
+      <article class="mini-card">
+        <button class="remove" type="button" aria-label="Remove ${escapeHtml(item.symbol)}" data-remove="${escapeHtml(item.symbol)}">×</button>
+        <div class="mini-symbol">${escapeHtml(item.symbol)}</div>
+        <div class="mini-date">Built ${formatDateTime(item.builtAt)} · ${item.days || 20}D</div>
+        <svg class="mini-chart" data-symbol="${escapeHtml(item.symbol)}" viewBox="0 0 260 100" preserveAspectRatio="none"></svg>
+      </article>
+    `).join('');
+
+    grid.querySelectorAll('[data-remove]').forEach((button) => {
+      button.addEventListener('click', () => removeSymbol(button.dataset.remove));
+    });
+
+    grid.querySelectorAll('.mini-chart').forEach((svg) => {
+      const item = list.find((entry) => entry.symbol === svg.dataset.symbol);
+      renderMiniChart(svg, item?.series?.length ? item.series : makeFallbackSeries(svg.dataset.symbol, 20));
+    });
+  }
+
+  function syncServerWatchlist(list) {
+    const symbols = list.map((item) => item.symbol);
+    fetch(apiUrl('/api/watchlists'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 1: symbols, 2: [], 3: [], 4: [], 5: [], 6: [] }),
+    }).catch(() => {});
+  }
+
+  function updateAddButton() {
+    const symbol = cleanSymbol($('#symbolInput').value) || currentSymbol;
+    const exists = getWatchlist().some((item) => item.symbol === symbol);
+    $('#addBtn').textContent = exists ? `${symbol} is in Watchlist` : `Add ${symbol} to Watchlist`;
+    $('#addBtn').disabled = exists;
+  }
+
+  function setButtonsBusy(isBusy) {
+    $('#drawBtn').disabled = isBusy;
+    $('#addBtn').disabled = isBusy;
+  }
+
+  function setStatus(text, className) {
+    const pill = $('#statusPill');
+    pill.textContent = text;
+    pill.className = `pill ${className || ''}`.trim();
+  }
+
+  function makeFallbackSeries(symbol, days) {
+    const base = sampleSeries.map((point, index) => ({
+      date: point.date,
+      ratio: Math.max(0.5, Math.min(1.4, point.ratio + ((symbol.charCodeAt(0) % 7) - 3) * 0.025 + index * 0.003)),
+    }));
+    if (days <= base.length) return base;
+    return base.concat(base.map((point, index) => ({
+      date: `2026-06-${String(22 + index).padStart(2, '0')}`,
+      ratio: Math.max(0.5, Math.min(1.4, point.ratio + 0.04)),
+    }))).slice(-days);
+  }
+
+  function cleanSymbol(value) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9.-]/g, '').slice(0, 12);
+  }
+
+  function formatRatio(value) {
+    return Number.isFinite(value) ? value.toFixed(2) : '—';
+  }
+
+  function formatShortDate(value) {
+    if (!value) return '—';
+    const date = new Date(value + 'T12:00:00Z');
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function formatDateTime(value) {
+    if (!value) return '—';
+    return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;',
+    }[char]));
+  }
+
+  init();
 })();

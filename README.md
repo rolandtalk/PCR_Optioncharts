@@ -1,6 +1,10 @@
-# OptionCharts Scraper API
+# PCR Tracker
 
-Scrapes [optioncharts.io](https://optioncharts.io) option metrics and exposes them as an API. Metrics are returned in this order: **IVR, TOI, PCRO, TOA, TV, PCRV, TVA**.
+Mobile-first Put/Call Ratio tracker with an Express scraper/API and a static Cloudflare Pages frontend.
+
+The deployable UI lives in `public/`. It lets a phone user enter a symbol, choose 20/60 records, draw a PCR curve, add the symbol to a watchlist, remove saved curves, and sort by curve build date.
+
+The existing API scrapes [optioncharts.io](https://optioncharts.io) option metrics and exposes them in this order: **IVR, TOI, PCRO, TOA, TV, PCRV, TVA**.
 
 | Field | Meaning |
 |-------|--------|
@@ -57,6 +61,10 @@ Response (order IVR → TOI → PCRO → TOA → TV → PCRV → TVA):
 npm install
 npx playwright install chromium
 npm start
+
+# Open the app:
+# http://127.0.0.1:3000
+
 # Manual scrape:
 curl http://localhost:3000/api/options/AVAV
 ```
@@ -85,6 +93,37 @@ node scrape-avav.js AVAV
 
 5. **Cron**  
    No separate cron service. The app runs the scheduled scrape at **22:15 Taiwan (14:15 UTC)** on **Mon–Fri** inside the same process.
+
+## Cloudflare Pages preparation
+
+Cloudflare direct upload is prepared with `wrangler.toml` and these npm scripts:
+
+```bash
+npm run pages:dev
+npm run pages:deploy
+```
+
+For direct deploy, you will need to provide these values in your terminal environment, not in the repo:
+
+```bash
+export CLOUDFLARE_ACCOUNT_ID="your-account-id"
+export CLOUDFLARE_API_TOKEN="your-pages-token"
+npm run pages:deploy
+```
+
+The API token needs Cloudflare Pages write access for the account/project. Keep it private. Do not paste it into source files or commit it.
+
+Current Cloudflare docs for direct upload use:
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=<ACCOUNT_ID> npx wrangler pages deploy <DIRECTORY> --project-name=<PROJECT_NAME>
+```
+
+For this repo, that becomes:
+
+```bash
+CLOUDFLARE_ACCOUNT_ID=<ACCOUNT_ID> npx wrangler pages deploy public --project-name=optionscan
+```
 
 ## Deploy frontend on Cloudflare Pages (optionscan.pages.dev)
 
@@ -135,3 +174,22 @@ After that, watchlists and snapshots are stored on the volume and persist across
 | `SCHEDULED_TICKERS` | AVAV | Tickers to scrape on schedule (comma-separated) |
 | `DATA_DIR` | ./data | Directory for snapshot JSON (use volume path on Railway to persist) |
 | `RAILWAY` | — | Set in Dockerfile for Playwright sandbox flags |
+| `MARKETDATA_API_TOKEN` | — | Marketdata.app Bearer token used by `/api/pcr/:ticker` |
+
+## Marketdata PCR endpoint
+
+The mobile chart calls:
+
+```bash
+GET /api/pcr/AAPL?days=20
+```
+
+This endpoint uses Marketdata.app's option chain API with Bearer token authentication, computes put/call ratios from option-chain volume and open-interest fields, and returns chronological points for the chart.
+
+For local development, put the token in `.env.local`:
+
+```bash
+MARKETDATA_API_TOKEN=...
+```
+
+For Railway production, add the same variable in the Railway service variables before or immediately after deploying the backend.

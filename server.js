@@ -1,3 +1,7 @@
+import { config } from 'dotenv';
+
+config({ path: ['.env.local', '.env'] });
+
 /**
  * OptionCharts scraper API
  * - Manual: GET /api/options/:ticker
@@ -10,6 +14,7 @@ import { fileURLToPath } from 'url';
 import cron from 'node-cron';
 import { scrapeOptions, scrapeMultiple } from './lib/scraper.js';
 import { appendSnapshot, getSnapshots, deleteSnapshots, loadWatchlists, saveWatchlists, DATA_DIR } from './lib/store.js';
+import { getPcrHistory } from './lib/marketdata.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -54,6 +59,23 @@ app.get('/api/watchlists', (req, res) => {
   } catch (e) {
     console.error('Load watchlists failed:', e);
     res.status(500).json({ error: 'Failed to load watchlists' });
+  }
+});
+
+/**
+ * Marketdata-powered PCR history.
+ * GET /api/pcr/:ticker?days=20
+ */
+app.get('/api/pcr/:ticker', async (req, res) => {
+  try {
+    const data = await getPcrHistory(req.params.ticker, req.query.days);
+    res.json(data);
+  } catch (e) {
+    console.error('Marketdata PCR failed:', e.message);
+    res.status(e.statusCode || 502).json({
+      error: 'Marketdata PCR failed',
+      message: e.message,
+    });
   }
 });
 

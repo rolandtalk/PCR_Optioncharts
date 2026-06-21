@@ -6,13 +6,20 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "dev": "node server.js",
+    "pages:dev": "wrangler pages dev public",
+    "pages:deploy": "wrangler pages deploy public --project-name=optionscan",
     "scrape": "node scrape-avav.js",
     "scrape:avav": "node scrape-avav.js"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "express": "^4.21.0",
     "node-cron": "^3.0.3",
     "playwright": "^1.58.2"
+  },
+  "devDependencies": {
+    "wrangler": "^4.103.0"
   },
   "engines": {
     "node": ">=18"
