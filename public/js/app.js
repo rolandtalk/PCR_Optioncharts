@@ -133,7 +133,7 @@
   }
 
   async function fetchMarketdataSeries(symbol, days) {
-    const response = await fetch(apiUrl(`/api/pcr/${encodeURIComponent(symbol)}?days=${encodeURIComponent(days)}`), { cache: 'no-store' });
+    const response = await fetch(apiUrl(`/api/pcr/${encodeURIComponent(symbol)}?days=${encodeURIComponent(days)}&scope=near&dte=30`), { cache: 'no-store' });
     if (!response.ok) throw new Error('Marketdata PCR request failed');
     const payload = await response.json();
     const points = Array.isArray(payload.points) ? payload.points : [];

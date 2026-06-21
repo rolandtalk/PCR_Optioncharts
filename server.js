@@ -64,11 +64,14 @@ app.get('/api/watchlists', (req, res) => {
 
 /**
  * Marketdata-powered PCR history.
- * GET /api/pcr/:ticker?days=20
+ * GET /api/pcr/:ticker?days=20&scope=near&dte=30
  */
 app.get('/api/pcr/:ticker', async (req, res) => {
   try {
-    const data = await getPcrHistory(req.params.ticker, req.query.days);
+    const data = await getPcrHistory(req.params.ticker, req.query.days, {
+      scope: req.query.scope,
+      dte: req.query.dte,
+    });
     res.json(data);
   } catch (e) {
     console.error('Marketdata PCR failed:', e.message);

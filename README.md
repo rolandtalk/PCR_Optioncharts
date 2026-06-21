@@ -181,10 +181,10 @@ After that, watchlists and snapshots are stored on the volume and persist across
 The mobile chart calls:
 
 ```bash
-GET /api/pcr/AAPL?days=20
+GET /api/pcr/AAPL?days=20&scope=near&dte=30
 ```
 
-This endpoint uses Marketdata.app's option chain API with Bearer token authentication, computes put/call ratios from option-chain volume and open-interest fields, and returns chronological points for the chart.
+This endpoint uses Marketdata.app's stock candles API to find real trading sessions, then uses the option chain API with Bearer token authentication to compute put/call ratios from option-chain volume and open-interest fields. By default it uses `scope=near&dte=30`, meaning the chain closest to 30 days to expiration, which is cheaper and more reliable for newer or less-liquid symbols than querying every expiration. Use `scope=all` only when you explicitly want full-chain PCR.
 
 For local development, put the token in `.env.local`:
 
