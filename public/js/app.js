@@ -42,6 +42,7 @@
     updateStats(currentSeries);
     updateAddButton();
     renderWatchlist();
+    hydrateWatchlistFromServer();
   }
 
   async function loadConfig() {
@@ -312,6 +313,110 @@
 
   function saveWatchlist(list) {
     localStorage.setItem(WATCHLIST_KEY, JSON.stringify(list));
+  }
+
+  async function hydrateWatchlistFromServer() {
+    try {
+      const serverSymbols = await fetchServerWatchlistSymbols();
+      const merged = mergeWatchlists(getWatchlist(), serverSymbols);
+      const needsSync = symbolListKey(serverSymbols) !== symbolListKey(merged.map((item) => item.symbol));
+
+      if (!watchlistsEqual(merged, getWatchlist())) {
+        saveWatchlist(merged);
+        renderWatchlist();
+        updateAddButton();
+      }
+
+      const hydrated = [];
+      let changed = false;
+      for (const item of merged) {
+        if (item.series?.length >= 2) {
+          hydrated.push(item);
+          continue;
+        }
+
+        try {
+          const series = await fetchMarketdataSeries(item.symbol, 20);
+          hydrated.push({
+            ...item,
+            days: 20,
+            refreshedAt: new Date().toISOString(),
+            series: series.slice(-20),
+            error: '',
+          });
+        } catch (_) {
+          hydrated.push({
+            ...item,
+            days: 20,
+            error: '20D live data unavailable',
+          });
+        }
+        changed = true;
+      }
+
+      if (changed) {
+        saveWatchlist(hydrated);
+        renderWatchlist();
+        updateAddButton();
+      }
+      if (needsSync) syncServerWatchlist(hydrated);
+    } catch (_) {
+      // Keep the local watchlist usable when the shared backend is unavailable.
+    }
+  }
+
+  async function fetchServerWatchlistSymbols() {
+    const response = await fetch(apiUrl('/api/watchlists'), { cache: 'no-store' });
+    if (!response.ok) throw new Error('Watchlist sync failed');
+    const payload = await response.json();
+    const symbols = [];
+    for (let i = 1; i <= 6; i++) {
+      const list = Array.isArray(payload[String(i)]) ? payload[String(i)] : [];
+      symbols.push(...list);
+    }
+    return [...new Set(symbols.map(cleanSymbol).filter(Boolean))].slice(0, 30);
+  }
+
+  function mergeWatchlists(localList, serverSymbols) {
+    const bySymbol = new Map();
+    const now = new Date().toISOString();
+    const serverSet = new Set(serverSymbols);
+    const serverIsCanonical = serverSymbols.length > 0;
+
+    localList.forEach((item) => {
+      const symbol = cleanSymbol(item.symbol);
+      if (serverIsCanonical && !serverSet.has(symbol)) return;
+      if (!symbol || bySymbol.has(symbol)) return;
+      bySymbol.set(symbol, {
+        ...item,
+        symbol,
+        days: 20,
+        builtAt: item.builtAt || now,
+      });
+    });
+
+    serverSymbols.forEach((symbol) => {
+      const clean = cleanSymbol(symbol);
+      if (!clean || bySymbol.has(clean)) return;
+      bySymbol.set(clean, {
+        symbol: clean,
+        days: 20,
+        builtAt: now,
+        refreshedAt: '',
+        series: [],
+        error: '',
+      });
+    });
+
+    return [...bySymbol.values()].slice(0, 30);
+  }
+
+  function watchlistsEqual(a, b) {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+
+  function symbolListKey(symbols) {
+    return [...new Set(symbols.map(cleanSymbol).filter(Boolean))].sort().join('|');
   }
 
   function addCurrentSymbol() {
