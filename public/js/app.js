@@ -30,6 +30,7 @@
   let selectedDays = 20;
   let currentSymbol = DEFAULT_SYMBOL;
   let currentSeries = sampleSeries;
+  let currentHasLiveData = false;
 
   const $ = (selector) => document.querySelector(selector);
 
@@ -39,6 +40,7 @@
     bindControls();
     renderChart(currentSymbol, currentSeries, selectedDays);
     updateStats(currentSeries);
+    updateAddButton();
     renderWatchlist();
   }
 
@@ -101,14 +103,16 @@
     setButtonsBusy(true);
     try {
       currentSeries = await fetchSeries(symbol, selectedDays);
+      currentHasLiveData = true;
       renderChart(symbol, currentSeries, selectedDays);
       updateStats(currentSeries);
       setStatus('Updated', '');
     } catch (error) {
-      currentSeries = makeFallbackSeries(symbol, selectedDays);
+      currentSeries = [];
+      currentHasLiveData = false;
       renderChart(symbol, currentSeries, selectedDays);
       updateStats(currentSeries);
-      setStatus('Sample data', 'error');
+      setStatus('Live unavailable', 'error');
     } finally {
       setButtonsBusy(false);
       updateAddButton();
@@ -253,6 +257,12 @@
 
   function updateStats(series) {
     const values = series.map((point) => point.ratio).filter(Number.isFinite);
+    if (!values.length) {
+      $('#latestRatio').textContent = '—';
+      $('#highRatio').textContent = '—';
+      $('#lowRatio').textContent = '—';
+      return;
+    }
     const latest = values[values.length - 1];
     $('#latestRatio').textContent = formatRatio(latest);
     $('#highRatio').textContent = formatRatio(Math.max(...values));
@@ -274,6 +284,11 @@
 
   function addCurrentSymbol() {
     const symbol = cleanSymbol($('#symbolInput').value) || currentSymbol;
+    if (!currentHasLiveData) {
+      setStatus('Draw live data first', 'error');
+      updateAddButton();
+      return;
+    }
     const list = getWatchlist();
     if (list.some((item) => item.symbol === symbol)) return;
     list.push({
@@ -339,8 +354,9 @@
   function updateAddButton() {
     const symbol = cleanSymbol($('#symbolInput').value) || currentSymbol;
     const exists = getWatchlist().some((item) => item.symbol === symbol);
+    const blocked = !currentHasLiveData || exists;
     $('#addBtn').textContent = exists ? `${symbol} is in Watchlist` : `Add ${symbol} to Watchlist`;
-    $('#addBtn').disabled = exists;
+    $('#addBtn').disabled = blocked;
   }
 
   function setButtonsBusy(isBusy) {
