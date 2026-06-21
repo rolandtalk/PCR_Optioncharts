@@ -187,6 +187,21 @@
       ${latest ? `<circle class="dot" cx="${latest.x}" cy="${latest.y}" r="6" />` : ''}
     `;
     renderAxisLabels(visible);
+    renderMoodMeter(visible);
+  }
+
+  function renderMoodMeter(series) {
+    const valid = series.filter((point) => Number.isFinite(point.ratio));
+    const callDays = valid.filter((point) => point.ratio < CHART.threshold).length;
+    const putDays = valid.filter((point) => point.ratio >= CHART.threshold).length;
+    const total = Math.max(valid.length, 1);
+    const callPct = (callDays / total) * 100;
+    const putPct = (putDays / total) * 100;
+
+    $('#callMoodFill').style.width = `${callPct}%`;
+    $('#putMoodFill').style.width = `${putPct}%`;
+    $('#callMoodPct').textContent = `${callPct.toFixed(1)}% Call days`;
+    $('#putMoodPct').textContent = `${putPct.toFixed(1)}% Put days`;
   }
 
   function renderMiniChart(container, series) {

@@ -66,6 +66,21 @@
         <div class="chart-wrap" role="img" aria-label="Put Call Ratio line chart">
           <svg id="mainChart" viewBox="0 0 720 280" preserveAspectRatio="none"></svg>
         </div>
+        <div class="mood-meter" aria-label="Call and put day occupancy">
+          <div class="mood-title">
+            <span>Call Mood</span>
+            <strong>Mood</strong>
+            <span>Put Fear</span>
+          </div>
+          <div class="mood-bar" aria-hidden="true">
+            <div class="mood-fill call" id="callMoodFill"></div>
+            <div class="mood-fill put" id="putMoodFill"></div>
+          </div>
+          <div class="mood-values">
+            <span id="callMoodPct">—</span>
+            <span id="putMoodPct">—</span>
+          </div>
+        </div>
         <div class="axis-labels" id="axisLabels"><span>—</span><span>—</span><span>—</span><span>—</span></div>
         <div class="legend">
           <span>Above 1.0</span>
