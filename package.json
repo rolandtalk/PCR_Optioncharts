@@ -1,22 +1,18 @@
 {
-  "name": "optioncharts-scraper",
+  "name": "optionscan-pcr",
   "version": "1.0.0",
-  "description": "Scrape option metrics from optioncharts.io — API + scheduled 22:15 Taiwan",
+  "description": "Marketdata.app PCR tracker API and frontend",
   "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
     "pages:dev": "wrangler pages dev public",
-    "pages:deploy": "wrangler pages deploy public --project-name=optionscan",
-    "scrape": "node scrape-avav.js",
-    "scrape:avav": "node scrape-avav.js"
+    "pages:deploy": "wrangler pages deploy public --project-name=optionscan"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
-    "express": "^4.21.0",
-    "node-cron": "^3.0.3",
-    "playwright": "^1.58.2"
+    "express": "^4.21.0"
   },
   "devDependencies": {
     "wrangler": "^4.103.0"

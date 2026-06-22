@@ -132,16 +132,9 @@
   }
 
   async function fetchSeries(symbol, days) {
-    const series = await fetchStoredSeries(symbol, days).catch(() => []);
-    if (series.length >= 2) return series;
-
-    const marketdataSeries = await fetchMarketdataSeries(symbol, days).catch(() => []);
-    if (marketdataSeries.length >= 2) return marketdataSeries;
-
-    await fetch(apiUrl(`/api/options/${encodeURIComponent(symbol)}`), { cache: 'no-store' });
-    const refreshed = await fetchStoredSeries(symbol, days);
-    if (refreshed.length < 2) throw new Error('Not enough PCR records');
-    return refreshed;
+    const marketdataSeries = await fetchMarketdataSeries(symbol, days);
+    if (marketdataSeries.length < 2) throw new Error('Not enough Marketdata PCR records');
+    return marketdataSeries;
   }
 
   async function fetchMarketdataSeries(symbol, days) {
@@ -155,20 +148,6 @@
         ratio: parseRatio(point.PCRO ?? point.PCRV),
       }))
       .filter((point) => point.date && Number.isFinite(point.ratio));
-  }
-
-  async function fetchStoredSeries(symbol, days) {
-    const response = await fetch(apiUrl(`/api/options/${encodeURIComponent(symbol)}/snapshots?limit=${days}`), { cache: 'no-store' });
-    if (!response.ok) throw new Error('Snapshot request failed');
-    const payload = await response.json();
-    const rows = Array.isArray(payload.snapshots) ? payload.snapshots : [];
-    return rows
-      .map((row) => ({
-        date: row.timestamp ? row.timestamp.slice(0, 10) : '',
-        ratio: parseRatio(row.PCRO ?? row.PCRV),
-      }))
-      .filter((point) => point.date && Number.isFinite(point.ratio))
-      .reverse();
   }
 
   function parseRatio(value) {
@@ -346,7 +325,7 @@
         }
 
         try {
-          const series = await fetchWatchlistSeries(item.symbol, 20);
+          const series = await fetchMarketdataSeries(item.symbol, 20);
           hydrated.push({
             ...item,
             days: 20,
@@ -358,7 +337,7 @@
           hydrated.push({
             ...item,
             days: 20,
-            error: '20D data unavailable',
+            error: '20D Marketdata unavailable',
           });
         }
         changed = true;
@@ -509,7 +488,7 @@
     const refreshed = [];
     for (const item of list) {
       try {
-        const series = await fetchWatchlistSeries(item.symbol, 20);
+        const series = await fetchMarketdataSeries(item.symbol, 20);
         refreshed.push({
           ...item,
           days: 20,
@@ -521,7 +500,7 @@
         refreshed.push({
           ...item,
           days: 20,
-          error: '20D data unavailable',
+          error: '20D Marketdata unavailable',
         });
       }
     }
@@ -541,12 +520,6 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 1: symbols, 2: [], 3: [], 4: [], 5: [], 6: [] }),
     }).catch(() => {});
-  }
-
-  async function fetchWatchlistSeries(symbol, days) {
-    const stored = await fetchStoredSeries(symbol, days).catch(() => []);
-    if (stored.length >= 2) return stored;
-    return fetchMarketdataSeries(symbol, days);
   }
 
   function updateAddButton() {
