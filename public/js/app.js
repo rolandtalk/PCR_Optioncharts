@@ -346,7 +346,7 @@
         }
 
         try {
-          const series = await fetchMarketdataSeries(item.symbol, 20);
+          const series = await fetchWatchlistSeries(item.symbol, 20);
           hydrated.push({
             ...item,
             days: 20,
@@ -358,7 +358,7 @@
           hydrated.push({
             ...item,
             days: 20,
-            error: '20D live data unavailable',
+            error: '20D data unavailable',
           });
         }
         changed = true;
@@ -509,7 +509,7 @@
     const refreshed = [];
     for (const item of list) {
       try {
-        const series = await fetchMarketdataSeries(item.symbol, 20);
+        const series = await fetchWatchlistSeries(item.symbol, 20);
         refreshed.push({
           ...item,
           days: 20,
@@ -521,7 +521,7 @@
         refreshed.push({
           ...item,
           days: 20,
-          error: '20D live data unavailable',
+          error: '20D data unavailable',
         });
       }
     }
@@ -541,6 +541,12 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 1: symbols, 2: [], 3: [], 4: [], 5: [], 6: [] }),
     }).catch(() => {});
+  }
+
+  async function fetchWatchlistSeries(symbol, days) {
+    const stored = await fetchStoredSeries(symbol, days).catch(() => []);
+    if (stored.length >= 2) return stored;
+    return fetchMarketdataSeries(symbol, days);
   }
 
   function updateAddButton() {
