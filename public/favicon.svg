@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Optionscan">
+  <rect width="64" height="64" fill="#ffffff"/>
+  <g fill="none" stroke="#111111" stroke-width="3.1" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M7 45 10 33 18 21 31 13 45 18 55 31 59 45"/>
+    <path d="M7 45h52"/>
+    <path d="M10 33h45"/>
+    <path d="M18 21h27"/>
+    <path d="M31 13v32"/>
+    <path d="M18 21 10 33h16z"/>
+    <path d="M18 21 31 13 30 33z"/>
+    <path d="M31 13 45 18 38 33z"/>
+    <path d="M45 18 55 31 45 33z"/>
+    <path d="M10 33 18 45 26 33z"/>
+    <path d="M26 33 18 45h25z"/>
+    <path d="M26 33h12l5 12z"/>
+    <path d="M38 33h17L43 45z"/>
+  </g>
+</svg>
