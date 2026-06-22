@@ -152,7 +152,7 @@
     return points
       .map((point) => ({
         date: point.date,
-        ratio: parseRatio(point.PCRV ?? point.PCRO),
+        ratio: parseRatio(point.PCRO ?? point.PCRV),
       }))
       .filter((point) => point.date && Number.isFinite(point.ratio));
   }
