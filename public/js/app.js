@@ -132,11 +132,11 @@
   }
 
   async function fetchSeries(symbol, days) {
+    const series = await fetchStoredSeries(symbol, days).catch(() => []);
+    if (series.length >= 2) return series;
+
     const marketdataSeries = await fetchMarketdataSeries(symbol, days).catch(() => []);
     if (marketdataSeries.length >= 2) return marketdataSeries;
-
-    const series = await fetchStoredSeries(symbol, days);
-    if (series.length >= 2) return series;
 
     await fetch(apiUrl(`/api/options/${encodeURIComponent(symbol)}`), { cache: 'no-store' });
     const refreshed = await fetchStoredSeries(symbol, days);
@@ -165,7 +165,7 @@
     return rows
       .map((row) => ({
         date: row.timestamp ? row.timestamp.slice(0, 10) : '',
-        ratio: parseRatio(row.PCRV ?? row.PCRO),
+        ratio: parseRatio(row.PCRO ?? row.PCRV),
       }))
       .filter((point) => point.date && Number.isFinite(point.ratio))
       .reverse();
