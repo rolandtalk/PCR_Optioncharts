@@ -78,6 +78,7 @@ app.get('/api/pcr/:ticker', async (req, res) => {
     res.status(e.statusCode || 502).json({
       error: 'Marketdata PCR failed',
       message: e.message,
+      details: e.details,
     });
   }
 });
