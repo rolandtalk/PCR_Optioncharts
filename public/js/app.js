@@ -320,7 +320,7 @@
       const hydrated = [];
       let changed = false;
       for (const item of merged) {
-        if (item.days === WATCHLIST_DAYS && item.series?.length >= 2) {
+        if (item.days === WATCHLIST_DAYS && item.series?.length >= WATCHLIST_DAYS) {
           hydrated.push(item);
           continue;
         }
