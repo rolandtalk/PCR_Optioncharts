@@ -11,6 +11,7 @@ import { getPcrHistory } from './lib/optioncharts.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
+const WATCHLISTS_REMOTE_URL = process.env.WATCHLISTS_REMOTE_URL || 'https://pcr-oc-2026jun.pages.dev/api/watchlists';
 
 app.use(express.json());
 
@@ -32,16 +33,36 @@ app.use(express.static(join(__dirname, 'public')));
 
 app.get('/health', (req, res) => res.send('ok'));
 
+async function fetchRemoteWatchlists() {
+  const response = await fetch(WATCHLISTS_REMOTE_URL, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`Remote watchlists failed (${response.status})`);
+  const data = await response.json();
+  saveWatchlists(data);
+  return data;
+}
+
+async function saveRemoteWatchlists(watchlists) {
+  const response = await fetch(WATCHLISTS_REMOTE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(watchlists),
+  });
+  if (!response.ok) throw new Error(`Remote watchlist save failed (${response.status})`);
+  const data = await response.json();
+  saveWatchlists(data);
+  return data;
+}
+
 /**
  * Get saved watchlists (sync across devices). Shape: { "1": [...], "2": [...], ... "6": [] }
  */
-app.get('/api/watchlists', (req, res) => {
+app.get('/api/watchlists', async (req, res) => {
   try {
-    const data = loadWatchlists();
+    const data = await fetchRemoteWatchlists();
     res.json(data);
   } catch (e) {
-    console.error('Load watchlists failed:', e);
-    res.status(500).json({ error: 'Failed to load watchlists' });
+    console.error('Remote watchlists unavailable, using local cache:', e.message);
+    res.json(loadWatchlists());
   }
 });
 
@@ -69,19 +90,21 @@ app.get('/api/pcr/:ticker', async (req, res) => {
 /**
  * Save watchlists (sync across devices). Body: { "1": [...], "2": [...], ... "6": [] }
  */
-app.post('/api/watchlists', (req, res) => {
+app.post('/api/watchlists', async (req, res) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   try {
+    const data = await saveRemoteWatchlists(body);
+    res.json(data);
+  } catch (e) {
+    console.error('Remote watchlist save unavailable, saving local cache:', e.message);
     saveWatchlists(body);
     res.json(loadWatchlists());
-  } catch (e) {
-    console.error('Save watchlists failed:', e);
-    res.status(500).json({ error: 'Failed to save watchlists' });
   }
 });
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
   console.log(`DATA_DIR=${DATA_DIR} (use a Volume mounted here so watchlists persist across devices and redeploys)`);
+  console.log(`Watchlist sync: ${WATCHLISTS_REMOTE_URL}`);
   console.log('PCR data source: optioncharts.io');
 });

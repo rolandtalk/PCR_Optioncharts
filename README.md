@@ -58,6 +58,8 @@ npm start
 curl "http://localhost:3000/api/pcr/PLTR?days=20"
 ```
 
+Local Express reads and saves watchlists through the production Cloudflare Pages API by default, so debug mode uses the same shared list as the public app. Set `WATCHLISTS_REMOTE_URL` only if you need local debug mode to sync with a different watchlist API.
+
 ## Cloudflare Pages preparation
 
 Cloudflare direct upload is prepared with `wrangler.toml`, Pages Functions in `functions/`, and these npm scripts:
@@ -119,6 +121,7 @@ Use this to serve the static UI and API from Cloudflare.
 |----------|---------|-------------|
 | `PORT` | 3000 | Local Express server port |
 | `DATA_DIR` | ./data | Local Express watchlist JSON directory |
+| `WATCHLISTS_REMOTE_URL` | https://pcr-oc-2026jun.pages.dev/api/watchlists | Watchlist API used by local Express for shared sync |
 ## OptionCharts PCR endpoint
 
 The mobile chart calls:
