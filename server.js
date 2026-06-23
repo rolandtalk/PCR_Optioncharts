@@ -14,10 +14,10 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// CORS: allow frontend on Cloudflare Pages (optionscan.pages.dev and preview subdomains)
+// CORS: allow frontend on Cloudflare Pages (PCR OC 2026Jun and preview subdomains)
 app.use((req, res, next) => {
   const origin = req.headers.origin || '';
-  if (origin === 'https://optionscan.pages.dev' || /^https:\/\/[a-z0-9-]+\.optionscan\.pages\.dev$/.test(origin)) {
+  if (origin === 'https://pcr-oc-2026jun.pages.dev' || /^https:\/\/[a-z0-9-]+\.pcr-oc-2026jun\.pages\.dev$/.test(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');

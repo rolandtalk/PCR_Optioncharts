@@ -1,14 +1,14 @@
 {
-  "name": "pcr-oc-2026un",
+  "name": "pcr-oc-2026jun",
   "version": "1.0.0",
-  "description": "PCR OC 2026UN OptionCharts web app",
+  "description": "PCR OC 2026Jun OptionCharts web app",
   "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
     "pages:dev": "wrangler pages dev public",
-    "pages:deploy": "wrangler pages deploy public --project-name=pcr-oc-2026un"
+    "pages:deploy": "wrangler pages deploy public --project-name=pcr-oc-2026jun"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
