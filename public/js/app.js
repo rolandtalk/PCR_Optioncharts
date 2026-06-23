@@ -92,10 +92,14 @@
 
   function bindControls() {
     document.querySelectorAll('.segment').forEach((button) => {
-      button.addEventListener('click', () => {
+      button.addEventListener('click', async () => {
         selectedDays = Number(button.dataset.days || 20);
         document.querySelectorAll('.segment').forEach((b) => b.classList.toggle('active', b === button));
-        renderChart(currentSymbol, currentSeries, selectedDays);
+        if (currentHasLiveData) {
+          await drawRequestedSymbol();
+        } else {
+          renderChart(currentSymbol, currentSeries, selectedDays);
+        }
       });
     });
 
