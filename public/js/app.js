@@ -228,6 +228,10 @@
       <line class="axis" x1="${CHART.left}" y1="${CHART.top}" x2="${CHART.left}" y2="${CHART.bottom}" />
       <line class="axis" x1="${CHART.left}" y1="${CHART.bottom}" x2="${CHART.right}" y2="${CHART.bottom}" />
       <line class="threshold" x1="${CHART.left}" y1="${thresholdY}" x2="${CHART.right}" y2="${thresholdY}" />
+      <text class="threshold-label" x="58" y="${thresholdY - 10}">1.0</text>
+      <text x="8" y="32" fill="#94a3b8" font-size="13">${CHART.maxRatio.toFixed(1)}</text>
+      <text x="8" y="${thresholdY}" fill="#94a3b8" font-size="13">1.0</text>
+      <text x="8" y="238" fill="#94a3b8" font-size="13">0.5</text>
       <path class="curve curve-above" clip-path="url(#above-${container.dataset.symbol})" d="${path}" />
       <path class="curve curve-below" clip-path="url(#below-${container.dataset.symbol})" d="${path}" />
     `;
