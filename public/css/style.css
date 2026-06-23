@@ -577,7 +577,8 @@ select {
 }
 
 .mini-chart {
-  height: 96px;
+  height: min(46vw, 220px);
+  min-height: 170px;
   margin-top: 12px;
 }
 

@@ -217,25 +217,17 @@
   }
 
   function renderMiniChart(container, series) {
-    const miniBox = {
-      width: 260,
-      height: 100,
-      left: 4,
-      right: 256,
-      top: 8,
-      bottom: 90,
-      minRatio: CHART.minRatio,
-      maxRatio: CHART.maxRatio,
-    };
-    const points = toPoints(series.slice(-WATCHLIST_DAYS), miniBox);
-    const thresholdY = ratioToY(CHART.threshold, miniBox);
+    const points = toPoints(series.slice(-WATCHLIST_DAYS));
+    const thresholdY = ratioToY(CHART.threshold);
     const path = pointsToPath(points);
     container.innerHTML = `
       <defs>
-        <clipPath id="above-${container.dataset.symbol}"><rect x="0" y="0" width="260" height="${thresholdY}" /></clipPath>
-        <clipPath id="below-${container.dataset.symbol}"><rect x="0" y="${thresholdY}" width="260" height="${100 - thresholdY}" /></clipPath>
+        <clipPath id="above-${container.dataset.symbol}"><rect x="0" y="0" width="${CHART.width}" height="${thresholdY}" /></clipPath>
+        <clipPath id="below-${container.dataset.symbol}"><rect x="0" y="${thresholdY}" width="${CHART.width}" height="${CHART.height - thresholdY}" /></clipPath>
       </defs>
-      <line class="threshold" x1="4" y1="${thresholdY}" x2="256" y2="${thresholdY}" />
+      <line class="axis" x1="${CHART.left}" y1="${CHART.top}" x2="${CHART.left}" y2="${CHART.bottom}" />
+      <line class="axis" x1="${CHART.left}" y1="${CHART.bottom}" x2="${CHART.right}" y2="${CHART.bottom}" />
+      <line class="threshold" x1="${CHART.left}" y1="${thresholdY}" x2="${CHART.right}" y2="${thresholdY}" />
       <path class="curve curve-above" clip-path="url(#above-${container.dataset.symbol})" d="${path}" />
       <path class="curve curve-below" clip-path="url(#below-${container.dataset.symbol})" d="${path}" />
     `;
@@ -479,7 +471,7 @@
         <button class="remove" type="button" aria-label="Remove ${escapeHtml(item.symbol)}" data-remove="${escapeHtml(item.symbol)}">×</button>
         <div class="mini-symbol">${escapeHtml(item.symbol)}</div>
         <div class="mini-date">Built ${formatDateTime(item.builtAt)} · ${WATCHLIST_DAYS}D</div>
-        <svg class="mini-chart" data-symbol="${escapeHtml(item.symbol)}" viewBox="0 0 260 100" preserveAspectRatio="none"></svg>
+        <svg class="mini-chart" data-symbol="${escapeHtml(item.symbol)}" viewBox="0 0 720 280" preserveAspectRatio="none"></svg>
         <div class="mini-mood" data-mood="${escapeHtml(item.symbol)}" aria-label="${escapeHtml(item.symbol)} call and put day occupancy"></div>
         ${item.error ? `<div class="mini-status">${escapeHtml(item.error)}</div>` : ''}
       </article>
