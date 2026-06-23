@@ -1,8 +1,6 @@
 (function () {
   const WATCHLIST_KEY = 'pcr_tracker_watchlist';
   const WATCHLIST_DAYS = 60;
-  const WATCHLIST_MAX_RATIO = 2.0;
-  const MAIN_60D_MAX_RATIO = 2.0;
   const DEFAULT_SYMBOL = 'AAPL';
   const CHART = {
     width: 720,
@@ -12,7 +10,7 @@
     top: 18,
     bottom: 242,
     minRatio: 0.5,
-    maxRatio: 1.4,
+    maxRatio: 2.0,
     threshold: 1.0,
   };
 
@@ -161,10 +159,9 @@
   function renderChart(symbol, series, days) {
     const visible = series.slice(-days);
     const svg = $('#mainChart');
-    const chartBox = mainChartBox(days);
-    const points = toPoints(visible, chartBox);
+    const points = toPoints(visible);
     const path = pointsToPath(points);
-    const thresholdY = ratioToY(CHART.threshold, chartBox);
+    const thresholdY = ratioToY(CHART.threshold);
     const latest = points[points.length - 1];
     const title = $('#chart-title');
 
@@ -178,7 +175,7 @@
       <line class="axis" x1="${CHART.left}" y1="${CHART.bottom}" x2="${CHART.right}" y2="${CHART.bottom}" />
       <line class="threshold" x1="${CHART.left}" y1="${thresholdY}" x2="${CHART.right}" y2="${thresholdY}" />
       <text class="threshold-label" x="58" y="${thresholdY - 10}">1.0</text>
-      <text x="8" y="32" fill="#94a3b8" font-size="13">${chartBox.maxRatio.toFixed(1)}</text>
+      <text x="8" y="32" fill="#94a3b8" font-size="13">${CHART.maxRatio.toFixed(1)}</text>
       <text x="8" y="${thresholdY}" fill="#94a3b8" font-size="13">1.0</text>
       <text x="8" y="238" fill="#94a3b8" font-size="13">0.5</text>
       <path class="curve curve-above" clip-path="url(#above-one-main)" d="${path}" />
@@ -187,13 +184,6 @@
     `;
     renderAxisLabels(visible);
     renderMoodMeter(visible);
-  }
-
-  function mainChartBox(days) {
-    return {
-      ...CHART,
-      maxRatio: Number(days) === 60 ? MAIN_60D_MAX_RATIO : CHART.maxRatio,
-    };
   }
 
   function renderMoodMeter(series) {
@@ -226,7 +216,7 @@
       top: 8,
       bottom: 90,
       minRatio: CHART.minRatio,
-      maxRatio: WATCHLIST_MAX_RATIO,
+      maxRatio: CHART.maxRatio,
     };
     const points = toPoints(series.slice(-WATCHLIST_DAYS), miniBox);
     const thresholdY = ratioToY(CHART.threshold, miniBox);
@@ -569,12 +559,12 @@
   function makeFallbackSeries(symbol, days) {
     const base = sampleSeries.map((point, index) => ({
       date: point.date,
-      ratio: Math.max(0.5, Math.min(1.4, point.ratio + ((symbol.charCodeAt(0) % 7) - 3) * 0.025 + index * 0.003)),
+      ratio: Math.max(CHART.minRatio, Math.min(CHART.maxRatio, point.ratio + ((symbol.charCodeAt(0) % 7) - 3) * 0.025 + index * 0.003)),
     }));
     if (days <= base.length) return base;
     return base.concat(base.map((point, index) => ({
       date: `2026-06-${String(22 + index).padStart(2, '0')}`,
-      ratio: Math.max(0.5, Math.min(1.4, point.ratio + 0.04)),
+      ratio: Math.max(CHART.minRatio, Math.min(CHART.maxRatio, point.ratio + 0.04)),
     }))).slice(-days);
   }
 
