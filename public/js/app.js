@@ -126,6 +126,7 @@
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) requestWatchlistHydrate(false);
     });
+    window.setInterval(() => requestWatchlistHydrate(false), 30000);
   }
 
   async function drawRequestedSymbol() {
@@ -462,20 +463,22 @@
     } finally {
       setButtonsBusy(false);
     }
-    list.push({
+    const nextList = [...list, {
       symbol,
       days: WATCHLIST_DAYS,
       builtAt: new Date().toISOString(),
       refreshedAt: new Date().toISOString(),
       series: series.slice(-WATCHLIST_DAYS),
       error,
-    });
-    saveWatchlist(list);
+    }];
     try {
-      await syncServerWatchlist(list, { merge: true });
+      await syncServerWatchlist(nextList, { merge: true });
+      saveWatchlist(nextList);
       setStatus('Added and synced', '');
     } catch (_) {
-      setStatus('Added on this device only', 'error');
+      setStatus('Add failed to sync', 'error');
+      updateAddButton();
+      return;
     }
     updateAddButton();
     showView('watchlist-page');
