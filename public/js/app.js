@@ -378,7 +378,7 @@
         renderWatchlist();
         updateAddButton();
       }
-      if (needsSync) await syncServerWatchlist(hydrated);
+      if (needsSync) await syncServerWatchlist(hydrated, { merge: true });
     } catch (_) {
       // Keep the local watchlist usable when the shared backend is unavailable.
     } finally {
@@ -472,7 +472,7 @@
     });
     saveWatchlist(list);
     try {
-      await syncServerWatchlist(list);
+      await syncServerWatchlist(list, { merge: true });
       setStatus('Added and synced', '');
     } catch (_) {
       setStatus('Added on this device only', 'error');
@@ -572,9 +572,9 @@
     button.innerHTML = '<span aria-hidden="true">↻</span>Refresh';
   }
 
-  async function syncServerWatchlist(list) {
+  async function syncServerWatchlist(list, { merge = false } = {}) {
     const symbols = list.map((item) => item.symbol);
-    const response = await fetch(apiUrl('/api/watchlists'), {
+    const response = await fetch(apiUrl(`/api/watchlists${merge ? '?merge=1' : ''}`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 1: symbols, 2: [], 3: [], 4: [], 5: [], 6: [] }),

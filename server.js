@@ -41,8 +41,9 @@ async function fetchRemoteWatchlists() {
   return data;
 }
 
-async function saveRemoteWatchlists(watchlists) {
-  const response = await fetch(WATCHLISTS_REMOTE_URL, {
+async function saveRemoteWatchlists(watchlists, { merge = false } = {}) {
+  const url = merge ? `${WATCHLISTS_REMOTE_URL}?merge=1` : WATCHLISTS_REMOTE_URL;
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(watchlists),
@@ -93,7 +94,7 @@ app.get('/api/pcr/:ticker', async (req, res) => {
 app.post('/api/watchlists', async (req, res) => {
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   try {
-    const data = await saveRemoteWatchlists(body);
+    const data = await saveRemoteWatchlists(body, { merge: req.query.merge === '1' });
     res.json(data);
   } catch (e) {
     console.error('Remote watchlist save unavailable, saving local cache:', e.message);
