@@ -42,6 +42,8 @@
   let currentSymbol = DEFAULT_SYMBOL;
   let currentSeries = sampleSeries;
   let currentHasLiveData = false;
+  let isHydratingWatchlist = false;
+  let lastWatchlistHydrateAt = 0;
 
   const $ = (selector) => document.querySelector(selector);
 
@@ -87,7 +89,10 @@
     document.querySelectorAll('.view').forEach((view) => view.classList.toggle('active', view.id === viewId));
     document.querySelectorAll('[data-view-link]').forEach((link) => link.classList.toggle('active', link.dataset.viewLink === viewId));
     history.replaceState(null, '', '#' + viewId);
-    if (viewId === 'watchlist-page') renderWatchlist();
+    if (viewId === 'watchlist-page') {
+      renderWatchlist();
+      requestWatchlistHydrate(true);
+    }
   }
 
   function bindControls() {
@@ -115,6 +120,11 @@
       if (event.key !== 'Enter') return;
       event.preventDefault();
       drawRequestedSymbol();
+    });
+
+    window.addEventListener('focus', () => requestWatchlistHydrate(false));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) requestWatchlistHydrate(false);
     });
   }
 
@@ -310,7 +320,21 @@
     localStorage.setItem(WATCHLIST_KEY, JSON.stringify(list));
   }
 
+  function isWatchlistVisible() {
+    return $('#watchlist-page')?.classList.contains('active');
+  }
+
+  function requestWatchlistHydrate(force) {
+    if (!isWatchlistVisible()) return;
+    const now = Date.now();
+    if (!force && now - lastWatchlistHydrateAt < 15000) return;
+    hydrateWatchlistFromServer();
+  }
+
   async function hydrateWatchlistFromServer() {
+    if (isHydratingWatchlist) return;
+    isHydratingWatchlist = true;
+    lastWatchlistHydrateAt = Date.now();
     try {
       const serverSymbols = await fetchServerWatchlistSymbols();
       const merged = mergeWatchlists(getWatchlist(), serverSymbols);
@@ -354,9 +378,11 @@
         renderWatchlist();
         updateAddButton();
       }
-      if (needsSync) syncServerWatchlist(hydrated);
+      if (needsSync) await syncServerWatchlist(hydrated);
     } catch (_) {
       // Keep the local watchlist usable when the shared backend is unavailable.
+    } finally {
+      isHydratingWatchlist = false;
     }
   }
 
@@ -445,15 +471,24 @@
       error,
     });
     saveWatchlist(list);
-    syncServerWatchlist(list);
+    try {
+      await syncServerWatchlist(list);
+      setStatus('Added and synced', '');
+    } catch (_) {
+      setStatus('Added on this device only', 'error');
+    }
     updateAddButton();
     showView('watchlist-page');
   }
 
-  function removeSymbol(symbol) {
+  async function removeSymbol(symbol) {
     const list = getWatchlist().filter((item) => item.symbol !== symbol);
     saveWatchlist(list);
-    syncServerWatchlist(list);
+    try {
+      await syncServerWatchlist(list);
+    } catch (_) {
+      setStatus('Removed on this device only', 'error');
+    }
     renderWatchlist();
   }
 
@@ -526,20 +561,26 @@
     }
 
     saveWatchlist(refreshed);
-    syncServerWatchlist(refreshed);
+    try {
+      await syncServerWatchlist(refreshed);
+    } catch (_) {
+      setStatus('Refresh saved on this device only', 'error');
+    }
     renderWatchlist();
     button.disabled = false;
     button.classList.remove('loading');
     button.innerHTML = '<span aria-hidden="true">↻</span>Refresh';
   }
 
-  function syncServerWatchlist(list) {
+  async function syncServerWatchlist(list) {
     const symbols = list.map((item) => item.symbol);
-    fetch(apiUrl('/api/watchlists'), {
+    const response = await fetch(apiUrl('/api/watchlists'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 1: symbols, 2: [], 3: [], 4: [], 5: [], 6: [] }),
-    }).catch(() => {});
+    });
+    if (!response.ok) throw new Error('Watchlist sync failed');
+    return response.json();
   }
 
   function updateAddButton() {
