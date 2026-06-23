@@ -1,5 +1,6 @@
 (function () {
   const WATCHLIST_KEY = 'pcr_tracker_watchlist';
+  const WATCHLIST_DAYS = 60;
   const DEFAULT_SYMBOL = 'AAPL';
   const CHART = {
     width: 720,
@@ -217,7 +218,7 @@
       minRatio: CHART.minRatio,
       maxRatio: CHART.maxRatio,
     };
-    const points = toPoints(series.slice(-20), miniBox);
+    const points = toPoints(series.slice(-WATCHLIST_DAYS), miniBox);
     const thresholdY = ratioToY(CHART.threshold, miniBox);
     const path = pointsToPath(points);
     container.innerHTML = `
@@ -319,25 +320,25 @@
       const hydrated = [];
       let changed = false;
       for (const item of merged) {
-        if (item.series?.length >= 2) {
+        if (item.days === WATCHLIST_DAYS && item.series?.length >= 2) {
           hydrated.push(item);
           continue;
         }
 
         try {
-          const series = await fetchOptionChartsSeries(item.symbol, 20);
+          const series = await fetchOptionChartsSeries(item.symbol, WATCHLIST_DAYS);
           hydrated.push({
             ...item,
-            days: 20,
+            days: WATCHLIST_DAYS,
             refreshedAt: new Date().toISOString(),
-            series: series.slice(-20),
+            series: series.slice(-WATCHLIST_DAYS),
             error: '',
           });
         } catch (_) {
           hydrated.push({
             ...item,
-            days: 20,
-            error: '20D OptionCharts unavailable',
+            days: WATCHLIST_DAYS,
+            error: `${WATCHLIST_DAYS}D OptionCharts unavailable`,
           });
         }
         changed = true;
@@ -379,7 +380,7 @@
       bySymbol.set(symbol, {
         ...item,
         symbol,
-        days: 20,
+        days: WATCHLIST_DAYS,
         builtAt: item.builtAt || now,
       });
     });
@@ -389,7 +390,7 @@
       if (!clean || bySymbol.has(clean)) return;
       bySymbol.set(clean, {
         symbol: clean,
-        days: 20,
+        days: WATCHLIST_DAYS,
         builtAt: now,
         refreshedAt: '',
         series: [],
@@ -408,7 +409,7 @@
     return [...new Set(symbols.map(cleanSymbol).filter(Boolean))].sort().join('|');
   }
 
-  function addCurrentSymbol() {
+  async function addCurrentSymbol() {
     const symbol = cleanSymbol($('#symbolInput').value) || currentSymbol;
     if (!currentHasLiveData) {
       setStatus('Draw live data first', 'error');
@@ -417,12 +418,26 @@
     }
     const list = getWatchlist();
     if (list.some((item) => item.symbol === symbol)) return;
+    setStatus('Loading 60D', 'loading');
+    setButtonsBusy(true);
+    let series = [];
+    let error = '';
+    try {
+      series = await fetchOptionChartsSeries(symbol, WATCHLIST_DAYS);
+      setStatus('Added', '');
+    } catch (_) {
+      error = `${WATCHLIST_DAYS}D OptionCharts unavailable`;
+      setStatus('Added without curve', 'error');
+    } finally {
+      setButtonsBusy(false);
+    }
     list.push({
       symbol,
-      days: 20,
+      days: WATCHLIST_DAYS,
       builtAt: new Date().toISOString(),
       refreshedAt: new Date().toISOString(),
-      series: currentSymbol === symbol ? currentSeries.slice(-20) : [],
+      series: series.slice(-WATCHLIST_DAYS),
+      error,
     });
     saveWatchlist(list);
     syncServerWatchlist(list);
@@ -454,7 +469,7 @@
       <article class="mini-card">
         <button class="remove" type="button" aria-label="Remove ${escapeHtml(item.symbol)}" data-remove="${escapeHtml(item.symbol)}">×</button>
         <div class="mini-symbol">${escapeHtml(item.symbol)}</div>
-        <div class="mini-date">Built ${formatDateTime(item.builtAt)} · 20D</div>
+        <div class="mini-date">Built ${formatDateTime(item.builtAt)} · ${WATCHLIST_DAYS}D</div>
         <svg class="mini-chart" data-symbol="${escapeHtml(item.symbol)}" viewBox="0 0 260 100" preserveAspectRatio="none"></svg>
         <div class="mini-mood" data-mood="${escapeHtml(item.symbol)}" aria-label="${escapeHtml(item.symbol)} call and put day occupancy"></div>
         ${item.error ? `<div class="mini-status">${escapeHtml(item.error)}</div>` : ''}
@@ -467,12 +482,12 @@
 
     grid.querySelectorAll('.mini-chart').forEach((svg) => {
       const item = list.find((entry) => entry.symbol === svg.dataset.symbol);
-      renderMiniChart(svg, item?.series?.length ? item.series.slice(-20) : []);
+      renderMiniChart(svg, item?.series?.length ? item.series.slice(-WATCHLIST_DAYS) : []);
     });
 
     grid.querySelectorAll('.mini-mood').forEach((meter) => {
       const item = list.find((entry) => entry.symbol === meter.dataset.mood);
-      renderMiniMood(meter, item?.series?.length ? item.series.slice(-20) : []);
+      renderMiniMood(meter, item?.series?.length ? item.series.slice(-WATCHLIST_DAYS) : []);
     });
   }
 
@@ -488,19 +503,19 @@
     const refreshed = [];
     for (const item of list) {
       try {
-        const series = await fetchOptionChartsSeries(item.symbol, 20);
+        const series = await fetchOptionChartsSeries(item.symbol, WATCHLIST_DAYS);
         refreshed.push({
           ...item,
-          days: 20,
+          days: WATCHLIST_DAYS,
           refreshedAt: new Date().toISOString(),
-          series: series.slice(-20),
+          series: series.slice(-WATCHLIST_DAYS),
           error: '',
         });
       } catch (_) {
         refreshed.push({
           ...item,
-          days: 20,
-          error: '20D OptionCharts unavailable',
+          days: WATCHLIST_DAYS,
+          error: `${WATCHLIST_DAYS}D OptionCharts unavailable`,
         });
       }
     }
