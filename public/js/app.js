@@ -107,6 +107,11 @@
       $('#symbolInput').value = cleanSymbol($('#symbolInput').value);
       updateAddButton();
     });
+    $('#symbolInput').addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      drawRequestedSymbol();
+    });
   }
 
   async function drawRequestedSymbol() {
