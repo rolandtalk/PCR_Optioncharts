@@ -132,14 +132,14 @@
   }
 
   async function fetchSeries(symbol, days) {
-    const marketdataSeries = await fetchMarketdataSeries(symbol, days);
-    if (marketdataSeries.length < 2) throw new Error('Not enough Marketdata PCR records');
-    return marketdataSeries;
+    const optionChartsSeries = await fetchOptionChartsSeries(symbol, days);
+    if (optionChartsSeries.length < 2) throw new Error('Not enough OptionCharts PCR records');
+    return optionChartsSeries;
   }
 
-  async function fetchMarketdataSeries(symbol, days) {
-    const response = await fetch(apiUrl(`/api/pcr/${encodeURIComponent(symbol)}?days=${encodeURIComponent(days)}&scope=near&dte=30`), { cache: 'no-store' });
-    if (!response.ok) throw new Error('Marketdata PCR request failed');
+  async function fetchOptionChartsSeries(symbol, days) {
+    const response = await fetch(apiUrl(`/api/pcr/${encodeURIComponent(symbol)}?days=${encodeURIComponent(days)}`), { cache: 'no-store' });
+    if (!response.ok) throw new Error('OptionCharts PCR request failed');
     const payload = await response.json();
     const points = Array.isArray(payload.points) ? payload.points : [];
     return points
@@ -325,7 +325,7 @@
         }
 
         try {
-          const series = await fetchMarketdataSeries(item.symbol, 20);
+          const series = await fetchOptionChartsSeries(item.symbol, 20);
           hydrated.push({
             ...item,
             days: 20,
@@ -337,7 +337,7 @@
           hydrated.push({
             ...item,
             days: 20,
-            error: '20D Marketdata unavailable',
+            error: '20D OptionCharts unavailable',
           });
         }
         changed = true;
@@ -488,7 +488,7 @@
     const refreshed = [];
     for (const item of list) {
       try {
-        const series = await fetchMarketdataSeries(item.symbol, 20);
+        const series = await fetchOptionChartsSeries(item.symbol, 20);
         refreshed.push({
           ...item,
           days: 20,
@@ -500,7 +500,7 @@
         refreshed.push({
           ...item,
           days: 20,
-          error: '20D Marketdata unavailable',
+          error: '20D OptionCharts unavailable',
         });
       }
     }

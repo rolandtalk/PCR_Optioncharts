@@ -6,7 +6,7 @@ import express from 'express';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { loadWatchlists, saveWatchlists, DATA_DIR } from './lib/store.js';
-import { getPcrHistory } from './lib/marketdata.js';
+import { getPcrHistory } from './lib/optioncharts.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -46,8 +46,8 @@ app.get('/api/watchlists', (req, res) => {
 });
 
 /**
- * Marketdata-powered PCR history.
- * GET /api/pcr/:ticker?days=20&scope=near&dte=30
+ * OptionCharts-powered PCR history.
+ * GET /api/pcr/:ticker?days=20
  */
 app.get('/api/pcr/:ticker', async (req, res) => {
   try {
@@ -57,9 +57,9 @@ app.get('/api/pcr/:ticker', async (req, res) => {
     });
     res.json(data);
   } catch (e) {
-    console.error('Marketdata PCR failed:', e.message);
+    console.error('OptionCharts PCR failed:', e.message);
     res.status(e.statusCode || 502).json({
-      error: 'Marketdata PCR failed',
+      error: 'OptionCharts PCR failed',
       message: e.message,
       details: e.details,
     });
@@ -83,5 +83,5 @@ app.post('/api/watchlists', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
   console.log(`DATA_DIR=${DATA_DIR} (use a Volume mounted here so watchlists persist across devices and redeploys)`);
-  console.log('PCR data source: marketdata.app');
+  console.log('PCR data source: optioncharts.io');
 });

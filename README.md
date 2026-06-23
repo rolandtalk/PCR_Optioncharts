@@ -1,10 +1,10 @@
 # PCR Tracker
 
-Mobile-first Put/Call Ratio tracker with a Marketdata.app-backed Express API and a static Cloudflare Pages frontend.
+Mobile-first Put/Call Ratio tracker with an OptionCharts-backed Express API and a static Cloudflare Pages frontend.
 
 The deployable UI lives in `public/`. It lets a phone user enter a symbol, choose 20/60 trading sessions, draw a PCR curve, add the symbol to a watchlist, remove saved curves, refresh watchlist curves, and sort by curve build date.
 
-The active PCR data source is **Marketdata.app only**. The app uses Marketdata stock candles to identify trading sessions and Marketdata option-chain open interest to compute daily OI PCR.
+The active PCR data source is **OptionCharts only**. The app reads OptionCharts open-interest history and charts daily OI PCR.
 
 ```text
 Daily OI PCR = total put open interest / total call open interest
@@ -16,14 +16,14 @@ Daily OI PCR = total put open interest / total call open interest
 |--------|------|-------------|
 | GET | `/` | Service info and doc links |
 | GET | `/health` | Health check (for Railway) |
-| GET | `/api/pcr/:ticker?days=20&scope=near&dte=30` | Marketdata-powered PCR history |
+| GET | `/api/pcr/:ticker?days=20` | OptionCharts-powered PCR history |
 | GET | `/api/watchlists` | Load shared watchlist symbols |
 | POST | `/api/watchlists` | Save shared watchlist symbols |
 
 Example:
 
 ```bash
-curl "https://your-app.railway.app/api/pcr/PLTR?days=20&scope=near&dte=30"
+curl "https://your-app.railway.app/api/pcr/PLTR?days=20"
 ```
 
 Response:
@@ -32,9 +32,7 @@ Response:
 {
   "ticker": "PLTR",
   "days": 20,
-  "source": "marketdata.app",
-  "scope": "near",
-  "dte": 30,
+  "source": "optioncharts.io",
   "ratioField": "PCRO",
   "points": [
     {
@@ -70,7 +68,6 @@ curl "http://localhost:3000/api/pcr/PLTR?days=20"
 
 3. **Env**  
    - `PORT` — set by Railway.  
-   - `MARKETDATA_API_TOKEN` — Marketdata.app Bearer token.  
    - `DATA_DIR` — where to store watchlists (default: `./data`). For persistence across deploys, add a **Volume** and set `DATA_DIR` to the mount path (e.g. `/data`).
 
 4. **Persistence (optional)**  
@@ -135,7 +132,7 @@ Use this to serve the **static UI** from Cloudflare while the **API** stays on R
 - **Portfolios** are labeled **RH / AL / 33 / DF / 55 / 66** (stored as 1–6 in the app).
 - **Default symbols** live in `public/data/watchlists.json` (keys `"1"`–`"6"` = RH–66). The app loads this on first visit and seeds empty portfolios; you can edit the file and commit to change defaults.
 - In the UI, **Export for repo** downloads the current watchlists as `watchlists.json`; save it to `public/data/watchlists.json` and commit to sync your symbols to the repo.
-- **Cross-device sync:** Watchlists are saved on the API server (Railway). When you add or remove symbols, the app pushes to `POST /api/watchlists`. When you open the app on another phone or browser, it loads from `GET /api/watchlists`, so you see the same symbols everywhere. PCR curves are fetched live from Marketdata.app.
+- **Cross-device sync:** Watchlists are saved on the API server (Railway). When you add or remove symbols, the app pushes to `POST /api/watchlists`. When you open the app on another phone or browser, it loads from `GET /api/watchlists`, so you see the same symbols everywhere. PCR curves are fetched live from OptionCharts.
 
 ## Persist Watchlists Across Devices (Railway Volume)
 
@@ -155,22 +152,12 @@ After that, watchlists are stored on the volume and persist across restarts and 
 | `PORT` | 3000 | Server port (Railway sets this) |
 | `DATA_DIR` | ./data | Directory for watchlist JSON (use volume path on Railway to persist) |
 | `RAILWAY` | — | Set in Dockerfile for Playwright sandbox flags |
-| `MARKETDATA_API_TOKEN` | — | Marketdata.app Bearer token used by `/api/pcr/:ticker` |
-
-## Marketdata PCR endpoint
+## OptionCharts PCR endpoint
 
 The mobile chart calls:
 
 ```bash
-GET /api/pcr/AAPL?days=20&scope=near&dte=30
+GET /api/pcr/AAPL?days=20
 ```
 
-This endpoint uses Marketdata.app's stock candles API to find real trading sessions, then uses the option chain API with Bearer token authentication to compute put/call ratios from option-chain open-interest fields. By default it uses `scope=near&dte=30`, meaning the chain closest to 30 days to expiration. Use `scope=all` only when you explicitly want full-chain PCR.
-
-For local development, put the token in `.env.local`:
-
-```bash
-MARKETDATA_API_TOKEN=...
-```
-
-For Railway production, add the same variable in the Railway service variables before or immediately after deploying the backend.
+This endpoint reads OptionCharts' open-interest history chart data and returns the latest requested number of OI put-call ratio points. It does not require an API token.

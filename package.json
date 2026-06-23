@@ -1,14 +1,14 @@
 {
-  "name": "optionscan-pcr",
+  "name": "pcr-oc-2026un",
   "version": "1.0.0",
-  "description": "Marketdata.app PCR tracker API and frontend",
+  "description": "PCR OC 2026UN OptionCharts web app",
   "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
     "pages:dev": "wrangler pages dev public",
-    "pages:deploy": "wrangler pages deploy public --project-name=optionscan"
+    "pages:deploy": "wrangler pages deploy public --project-name=pcr-oc-2026un"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

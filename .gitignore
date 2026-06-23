@@ -7,3 +7,4 @@ data/
 avav-page.html
 .DS_Store
 .playwright-browsers/
+.wrangler/
