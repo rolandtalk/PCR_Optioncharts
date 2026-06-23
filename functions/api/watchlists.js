@@ -1,11 +1,4 @@
-const EMPTY_WATCHLISTS = {
-  1: [],
-  2: [],
-  3: [],
-  4: [],
-  5: [],
-  6: [],
-};
+import { cloneDefaultWatchlists } from '../../lib/defaultWatchlists.js';
 
 function json(data, init = {}) {
   return new Response(JSON.stringify(data), {
@@ -18,14 +11,14 @@ function json(data, init = {}) {
 }
 
 export async function onRequestGet({ env }) {
-  if (!env.WATCHLISTS) return json(EMPTY_WATCHLISTS);
+  if (!env.WATCHLISTS) return json(cloneDefaultWatchlists());
 
   const stored = await env.WATCHLISTS.get('watchlists', 'json');
-  return json(stored || EMPTY_WATCHLISTS);
+  return json(stored || cloneDefaultWatchlists());
 }
 
 export async function onRequestPost({ env, request }) {
-  const body = await request.json().catch(() => EMPTY_WATCHLISTS);
+  const body = await request.json().catch(() => cloneDefaultWatchlists());
 
   if (env.WATCHLISTS) {
     await env.WATCHLISTS.put('watchlists', JSON.stringify(body));
